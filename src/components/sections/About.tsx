@@ -46,10 +46,9 @@ export default function About() {
             <Reveal delay={0.16}>
               <div className="mt-7 max-w-xl space-y-5 text-[1.0625rem] leading-relaxed text-titanium">
                 <p>
-                  BytesPlatform is the product and engineering practice of Bytes &amp;
-                  Partners. We design and build the systems businesses run on — web
-                  platforms, mobile applications, CRM and admin tooling, AI agents and
-                  the automation that connects them.
+                  Bytes and Partners is a technology company that designs and builds the
+                  systems businesses run on — web platforms, mobile applications, CRM and
+                  admin tooling, AI agents and the automation that connects them.
                 </p>
                 <p>
                   Our work spans regulated fintech on five delivery surfaces, healthcare
@@ -99,11 +98,47 @@ export default function About() {
               </Reveal>
             ))}
 
-            <Reveal delay={0.3} amount={0.2}>
+            <Reveal delay={0.28} amount={0.2}>
+              <div className="glass glass-edge mt-3 rounded-2xl p-6">
+                <p className="eyebrow">Structure</p>
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="min-w-0">
+                    <p className="text-[1.0625rem] font-medium tracking-[-0.02em] text-white">
+                      Bytes and Partners
+                    </p>
+                    <p className="mt-1 text-[0.8125rem] text-titanium-dim">
+                      Parent technology company
+                    </p>
+                  </div>
+                  <span
+                    aria-hidden
+                    className="hidden h-px flex-1 bg-gradient-to-r from-[#4d8dff]/50 to-[#9b7bff]/30 sm:block"
+                  />
+                  <span aria-hidden className="text-titanium-dim sm:hidden">
+                    ↓
+                  </span>
+                  <div className="min-w-0 sm:text-right">
+                    <p className="text-[1.0625rem] font-medium tracking-[-0.02em] text-gradient-ai">
+                      BytesPlatform
+                    </p>
+                    <p className="mt-1 text-[0.8125rem] text-titanium-dim">
+                      Technology platform &amp; subsidiary
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-5 border-t border-white/8 pt-4 text-[0.875rem] leading-relaxed text-titanium">
+                  Client products are built by Bytes and Partners through BytesPlatform —
+                  our technology platform for AI systems, applications and custom
+                  software.
+                </p>
+              </div>
+            </Reveal>
+
+            <Reveal delay={0.34} amount={0.2}>
               <div className="glass-edge relative mt-3 overflow-hidden rounded-2xl">
                 <Image
                   src="/projects/quantiva/screen-wall.jpg"
-                  alt="A wall of production screens from a shipped BytesPlatform build"
+                  alt="A wall of production screens from a shipped Bytes and Partners build"
                   width={2400}
                   height={119}
                   sizes="(max-width: 1024px) 92vw, 600px"

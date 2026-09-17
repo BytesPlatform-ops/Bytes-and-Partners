@@ -41,11 +41,15 @@ export default function Footer() {
               Building intelligent digital experiences — AI-powered products, scalable
               applications and the systems that run behind them.
             </p>
+            <p className="mt-4 max-w-xs text-[0.8125rem] leading-relaxed text-titanium-dim">
+              Delivered through <span className="text-titanium">BytesPlatform</span>, our
+              technology platform and subsidiary.
+            </p>
             <div className="mt-7 flex gap-2.5">
               {[
                 {
                   label: "LinkedIn",
-                  href: "https://www.linkedin.com/company/bytesplatform",
+                  href: "https://www.linkedin.com/company/bytes-and-partners",
                   d: "M4.5 6.5v7M4.5 3.6v.1M8 13.5v-4a2 2 0 0 1 4 0v4",
                 },
                 { label: "Email", href: "mailto:info@bytesandpartners.co", d: "M2 5l6 4 6-4M2 4.5h12v7H2z" },
@@ -143,15 +147,15 @@ export default function Footer() {
 
         {/* wordmark */}
         <div className="mask-fade-b relative mt-20 select-none" aria-hidden>
-          <p className="display-tight whitespace-nowrap text-center text-[clamp(3rem,14.2vw,13rem)] font-medium leading-none text-transparent [-webkit-background-clip:text] [background-clip:text]"
+          <p className="display-tight whitespace-nowrap text-center text-[clamp(1.75rem,9vw,8.25rem)] font-medium leading-none text-transparent [-webkit-background-clip:text] [background-clip:text]"
              style={{ backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.02))" }}>
-            BytesPlatform
+            Bytes and Partners
           </p>
         </div>
 
         <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-white/8 pt-7 sm:flex-row">
           <p className="font-mono text-[0.6875rem] text-titanium-dim">
-            © {year} Bytes &amp; Partners. All rights reserved.
+            © {year} Bytes and Partners. All rights reserved.
           </p>
           <p className="font-mono text-[0.6875rem] text-titanium-dim">
             Designed &amp; engineered in-house · New York

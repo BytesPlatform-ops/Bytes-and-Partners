@@ -1,7 +1,9 @@
-# BytesPlatform
+# Bytes and Partners
 
-Marketing and portfolio site for **BytesPlatform** — the product and engineering
-practice of Bytes & Partners.
+Marketing and portfolio site for **Bytes and Partners** — the parent technology
+company. Client work is delivered through **BytesPlatform**, its technology platform
+and subsidiary; the platform is referenced as a subsidiary throughout the site and is
+never presented as the company itself.
 
 Built as a single cinematic experience: a scroll-driven portfolio where each project
 is presented as a product launch rather than a card in a grid.
@@ -75,6 +77,10 @@ silently breaks `absolute` on any `.glass-edge` element.
 - Skip link, focus-visible rings, labelled landmarks and `aria-*` on all controls.
 
 ## Content policy
+
+Bytes and Partners is the primary brand everywhere; BytesPlatform appears only
+as the subsidiary platform (About hierarchy block, footer note, JSON-LD
+`subOrganization` / `brand`).
 
 Every metric on this site traces to a public source — an App Store listing, a Google
 Search Console property, or the running application. `note` fields on a project state

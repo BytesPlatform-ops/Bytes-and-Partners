@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "BytesPlatform — We Build Intelligent Digital Experiences";
+export const alt = "Bytes and Partners — We Build Intelligent Digital Experiences";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -39,7 +39,7 @@ export default async function OpengraphImage() {
           </div>
           <div style={{ display: "flex", color: "#f4f6fa", fontSize: 26, letterSpacing: -0.5 }}>
             <span>Bytes</span>
-            <span style={{ color: "#8b929d" }}>Platform</span>
+            <span style={{ color: "#8b929d" }}>&nbsp;and Partners</span>
           </div>
         </div>
 
@@ -66,8 +66,8 @@ export default async function OpengraphImage() {
             </span>
           </div>
           <div style={{ color: "#8b929d", fontSize: 25, marginTop: 26, maxWidth: 880 }}>
-            AI-powered products, scalable applications and intelligent systems — designed
-            and engineered in-house.
+            AI-powered products, scalable applications and intelligent systems —
+            engineered in-house through BytesPlatform.
           </div>
         </div>
 
