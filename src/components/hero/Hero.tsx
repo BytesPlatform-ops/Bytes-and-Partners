@@ -1,325 +1,328 @@
 "use client";
 
-import { useRef } from "react";
-import { motion, useScroll, useTransform, useMotionValue, useSpring } from "motion/react";
-import ParticleField from "./ParticleField";
-import MagneticButton from "@/components/ui/MagneticButton";
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
 
-const LINE_1 = ["We", "build"];
-const LINE_2 = ["intelligent"];
-const LINE_3 = ["digital", "experiences."];
+import HeroNav from "./HeroNav";
+import HeroField from "./HeroField";
+import HeroTypography from "./HeroTypography";
+import NextScene from "./NextScene";
 
-const STATS = [
-  { v: "7+", l: "Products shipped" },
-  { v: "5", l: "Delivery surfaces" },
-  { v: "3", l: "Continents served" },
-  { v: "100%", l: "In-house engineering" },
+import { createFluid, type Fluid } from "@/lib/hero/fluid";
+import { prefersReducedMotion, isCoarsePointer, fontsReady } from "@/lib/animation/prefs";
+import { mountScroll } from "@/lib/animation/scroll";
+
+/**
+ * The scripted opening path, in aspect-corrected hero space (x is multiplied
+ * by the aspect ratio, y is 0..1 from the bottom). It enters from the left,
+ * dips down through the word, rises past the period and leaves to the right.
+ */
+const OPENING: Array<[number, number]> = [
+  [-0.22, 0.42],
+  [0.02, 0.52],
+  [0.24, 0.34],
+  [0.44, 0.50],
+  [0.62, 0.30],
+  [0.80, 0.46],
+  [0.98, 0.28],
+  [1.16, 0.44],
+  [1.34, 0.36],
 ];
 
+/** Catmull-Rom through the opening path so the head moves on a smooth curve. */
+function samplePath(pts: Array<[number, number]>, t: number, aspect: number): [number, number] {
+  const segs = pts.length - 1;
+  const u = Math.min(0.9999, Math.max(0, t)) * segs;
+  const i = Math.floor(u);
+  const f = u - i;
+  const p = (k: number) => pts[Math.min(pts.length - 1, Math.max(0, k))];
+  const [x0, y0] = p(i - 1);
+  const [x1, y1] = p(i);
+  const [x2, y2] = p(i + 1);
+  const [x3, y3] = p(i + 2);
+  const cr = (a: number, b: number, c: number, d: number) => {
+    const f2 = f * f;
+    const f3 = f2 * f;
+    return 0.5 * (2 * b + (-a + c) * f + (2 * a - 5 * b + 4 * c - d) * f2 + (-a + 3 * b - 3 * c + d) * f3);
+  };
+  return [cr(x0, x1, x2, x3) * aspect, cr(y0, y1, y2, y3)];
+}
+
 export default function Hero() {
-  const ref = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  const y = useTransform(scrollYProgress, [0, 1], [0, 140]);
-  const opacity = useTransform(scrollYProgress, [0, 0.72], [1, 0]);
-  const scale = useTransform(scrollYProgress, [0, 1], [1, 0.94]);
+  const root = useRef<HTMLDivElement>(null);
 
-  const px = useMotionValue(0);
-  const py = useMotionValue(0);
-  const sx = useSpring(px, { stiffness: 90, damping: 22, mass: 0.6 });
-  const sy = useSpring(py, { stiffness: 90, damping: 22, mass: 0.6 });
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
 
-  const onMove = (e: React.MouseEvent) => {
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    px.set((e.clientX - r.left - r.width / 2) / r.width);
-    py.set((e.clientY - r.top - r.height / 2) / r.height);
-  };
+    const q = <T extends Element>(s: string) => el.querySelector<T>(s);
 
-  const t1x = useTransform(sx, (v) => v * -34);
-  const t1y = useTransform(sy, (v) => v * -22);
-  const t2x = useTransform(sx, (v) => v * 46);
-  const t2y = useTransform(sy, (v) => v * 30);
-  const t3x = useTransform(sx, (v) => v * -20);
-  const t3y = useTransform(sy, (v) => v * 36);
-  const glowX = useTransform(sx, (v) => v * 60);
-  const glowY = useTransform(sy, (v) => v * 40);
+    const hero = q<HTMLElement>("[data-hero]");
+    const canvas = q<HTMLCanvasElement>("[data-field]");
+    const word = q<HTMLElement>("[data-word]");
+    const period = q<HTMLElement>("[data-period]");
+    const nav = q<HTMLElement>("header");
+    const footer = q<HTMLElement>("[data-hero-foot]");
+    const nextDot = q<HTMLElement>("[data-next-dot]");
+    const lines = Array.from(el.querySelectorAll<HTMLElement>("[data-line]"));
+    if (!hero || !canvas || !word || lines.length === 0) return;
 
-  const word = {
-    hidden: { opacity: 0, y: "0.3em", filter: "blur(14px)" },
-    show: (i: number) => ({
-      opacity: 1,
-      y: "0em",
-      filter: "blur(0px)",
-      transition: { duration: 0.85, delay: 0.08 + i * 0.05, ease: [0.16, 1, 0.3, 1] as const },
-    }),
-  };
+    const reduced = prefersReducedMotion();
+    const coarse = isCoarsePointer();
+    const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.25 : 1.5);
+    /** the simulation is diffuse, so it runs coarser than the canvas it paints */
+    const SCALE = coarse ? 0.4 : 0.6;
 
-  let idx = 0;
-  const renderLine = (words: string[], accent = false) => (
-    <span className="block pb-[0.04em]">
-      {words.map((w) => {
-        const i = idx++;
-        return (
-          <motion.span
-            key={w + i}
-            custom={i}
-            variants={word}
-            initial="hidden"
-            animate="show"
-            className={`inline-block will-change-transform ${accent ? "text-gradient-ai" : "text-gradient"}`}
-          >
-            {w}
-            {" "}
-          </motion.span>
-        );
-      })}
-    </span>
-  );
+    let fluid: Fluid | null = null;
+    let releaseScroll: (() => void) | null = null;
+    let tl: gsap.core.Timeline | null = null;
+    let disposed = false;
+    let settled = false;
+    let visible = true;
+
+    /** the head the field follows: a lagged chaser, never the raw pointer */
+    const head = { x: 0.5, y: 0.5, tx: 0.5, ty: 0.5, speed: 0 };
+
+    /** No fluid: the composition is simply there, which is the whole point. */
+    function staticComposition() {
+      if (canvas) canvas.style.display = "none";
+      settled = true;
+    }
+
+    // ------------------------------------------------------------ geometry
+    function layout() {
+      if (!fluid || disposed) return;
+      const r = hero!.getBoundingClientRect();
+      fluid.resize(r.width, r.height, SCALE, dpr);
+    }
+
+
+    // -------------------------------------------------------------- ticker
+    const tick = (_t: number, dt: number) => {
+      if (document.hidden || !visible || !fluid) return;
+      const s = Math.min(dt, 50) / 1000;
+
+      // inertia: the head eases toward its target, and how hard it is moving
+      // is what charges the front
+      // inertia, so the front carries its own momentum through the turns
+      head.x += (head.tx - head.x) * 0.16;
+      head.y += (head.ty - head.y) * 0.16;
+
+      // How hard the head is working. During the opening it lays ink
+      // continuously; afterwards only real pointer movement injects, so a
+      // resting cursor lets the field decay away to nothing.
+      // The fluid is not a cursor follower. It lays ink only while the
+      // scripted reveal is running; once the hero is open it stops.
+      fluid.setHead(head.x, head.y);
+
+      // At rest the hero is open and there is nothing to composite, so the
+      // field is not drawn at all. Scrolling brings it back to carry the
+      // transition out.
+      const sy = window.scrollY;
+      const leaving = sy > 2;
+      if (!settled || leaving) {
+        canvas.style.display = "";
+        fluid.render(s);
+      } else if (canvas.style.display !== "none") {
+        canvas.style.display = "none";
+      }
+
+      if (!settled) return;
+
+      // ---- scroll: the field stretches and drags, the word is carried up
+      const vh = window.innerHeight || 1;
+      const p = Math.min(1, Math.max(0, window.scrollY / vh));
+      const e = p * p * (3 - 2 * p);
+      fluid.scroll = e;
+
+      if (word) {
+        word.style.transform = `translate3d(0,${-vh * 0.4 * e}px,0)`;
+        word.style.opacity = `${1 - Math.max(0, (p - 0.5) / 0.5)}`;
+      }
+      if (nav) {
+        const o = Math.max(0, 1 - p * 1.9);
+        nav.style.transform = `translate3d(0,${-70 * e}px,0)`;
+        nav.style.opacity = `${o}`;
+        nav.style.pointerEvents = o < 0.05 ? "none" : "";
+      }
+      if (footer) {
+        const o = Math.max(0, 1 - p * 2.4);
+        footer.style.transform = `translate3d(0,${50 * e}px,0)`;
+        footer.style.opacity = `${o}`;
+        footer.style.pointerEvents = o < 0.05 ? "none" : "";
+      }
+      if (nextDot) nextDot.style.transform = `scale(${0.35 + e * 0.65})`;
+
+      // the same fluid, running the other way: the cover closes back over the
+      // hero from the direction of travel as the next scene arrives
+      fluid.open = p > 0.01 ? 0 : 1;
+      fluid.reclaim = p > 0.01 ? 0.955 : 1;
+      fluid.alpha = 1;
+      fluid.inject = p > 0.01 && p < 0.9 ? 0.5 : 0;
+      fluid.radius = 0.3;
+      head.tx = (0.15 + e * 0.9) * fluid.aspect;
+      head.ty = 1.15 - e * 1.5;
+    };
+
+    // --------------------------------------------------------------- input
+
+    let resizeRaf = 0;
+    const onResize = () => {
+      if (resizeRaf) return;
+      resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = 0;
+        layout();
+      });
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        visible = entries[0]?.isIntersecting ?? true;
+      },
+      { rootMargin: "80px" },
+    );
+    io.observe(hero);
+    window.addEventListener("resize", onResize, { passive: true });
+
+    // ----------------------------------------------------------- the period
+    let periodTl: gsap.core.Timeline | null = null;
+    const onPeriodEnter = () => {
+      if (!settled || reduced) return;
+      periodTl?.kill();
+      periodTl = gsap.timeline();
+      periodTl.to(period, { scale: 1.16, duration: 0.5, ease: "expo.out" }, 0);
+    };
+    const onPeriodLeave = () => {
+      if (reduced) return;
+      gsap.to(period, { scale: 1, duration: 0.7, ease: "expo.out" });
+    };
+    period?.addEventListener("pointerenter", onPeriodEnter);
+    period?.addEventListener("pointerleave", onPeriodLeave);
+
+    // ------------------------------------------------------------- startup
+    if (reduced) {
+      staticComposition();
+      releaseScroll = mountScroll({ smooth: false });
+      return cleanup;
+    }
+
+    releaseScroll = mountScroll({ smooth: !coarse });
+
+    let cancelled = false;
+    fontsReady(220).then(() => {
+      if (cancelled || disposed) return;
+
+      fluid = createFluid(canvas);
+      if (!fluid) {
+        staticComposition();
+        return;
+      }
+      layout();
+      canvas.style.opacity = "1";
+      gsap.ticker.add(tick);
+
+      const fl = fluid;
+      // seed the whole path at the entry point so the body arrives already
+      // formed rather than growing out of a single dot
+      const [sx, sy] = samplePath(OPENING, 0, fl.aspect);
+      head.x = head.tx = sx;
+      head.y = head.ty = sy;
+      fl.setHead(sx, sy);
+
+      const drive = { t: 0 };
+      tl = gsap.timeline({
+        onComplete: () => {
+          settled = true;
+        },
+      });
+
+      // 0.15  the surface starts to move under the cover
+      tl.fromTo(fl, { swirl: 0.3 }, { swirl: 1, duration: 0.4, ease: "power2.out" }, 0.15);
+
+      // 0.30–1.70  the fluid crosses the hero, opening it as it goes.
+      // Injection is wide and constant, so this sweeps a broad region rather
+      // than tracing a line through it.
+      tl.fromTo(fl, { inject: 0 }, { inject: 1, duration: 0.25, ease: "power2.out" }, 0.3);
+      tl.to(
+        drive,
+        {
+          t: 1,
+          duration: 1.4,
+          ease: "sine.inOut",
+          onUpdate: () => {
+            const [x, y] = samplePath(OPENING, drive.t, fl.aspect);
+            head.tx = x;
+            head.ty = y;
+          },
+        },
+        0.3,
+      );
+
+      // the body swells as it crosses, so the opening widens behind it
+      tl.fromTo(fl, { radius: 0.13 }, { radius: 0.34, duration: 1.1, ease: "power1.inOut" }, 0.35);
+
+      // 1.5–2.2  it stops laying new fluid, what is there stretches out, and
+      // the last of the cover is taken away so the hero is guaranteed clean
+      tl.to(fl, { inject: 0, duration: 0.45, ease: "power2.in" }, 1.5);
+      tl.to(fl, { swirl: 2.1, duration: 0.8, ease: "power2.out" }, 1.5);
+      tl.to(fl, { decay: 0.955, duration: 0.7, ease: "power2.in" }, 1.6);
+      tl.fromTo(fl, { open: 0 }, { open: 1, duration: 0.75, ease: "power2.inOut" }, 1.65);
+      tl.to(fl, { alpha: 0, duration: 0.35, ease: "power2.out" }, 2.25);
+    });
+
+    function cleanup() {
+      disposed = true;
+      cancelled = true;
+      tl?.kill();
+      periodTl?.kill();
+      gsap.ticker.remove(tick);
+      io.disconnect();
+      window.removeEventListener("resize", onResize);
+      period?.removeEventListener("pointerenter", onPeriodEnter);
+      period?.removeEventListener("pointerleave", onPeriodLeave);
+      cancelAnimationFrame(resizeRaf);
+      releaseScroll?.();
+      fluid?.destroy();
+      fluid = null;
+    }
+
+    return cleanup;
+  }, []);
 
   return (
-    <section
-      ref={ref}
-      onMouseMove={onMove}
-      className="relative isolate flex min-h-[100svh] flex-col justify-center overflow-hidden px-5 pt-28 pb-16 sm:px-8 lg:px-12"
-      aria-label="Bytes and Partners — intelligent digital experiences"
-    >
-      {/* ---------- atmosphere ---------- */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-[#05060a]" />
-        <motion.div
-          style={{ x: glowX, y: glowY }}
-          className="absolute -top-[18%] left-1/2 h-[860px] w-[1240px] -translate-x-1/2 rounded-full opacity-[0.62] blur-[120px] animate-drift"
-          // aurora core
+    <div ref={root}>
+      <div
+        data-hero
+        id="top"
+        className="relative flex h-[100svh] flex-col justify-between overflow-clip"
+      >
+        <HeroField />
+
+        <HeroNav />
+
+        <div className="relative z-10 flex flex-1 items-end px-[var(--bp-gut)] pb-[8svh]">
+          <HeroTypography />
+        </div>
+
+        <div
+          data-hero-foot
+          className="relative z-10 flex items-end justify-between gap-6 px-[var(--bp-gut)] pb-[var(--bp-gut)]"
         >
-          <div
-            className="h-full w-full rounded-full"
-            style={{
-              background:
-                "radial-gradient(48% 52% at 50% 44%, rgba(77,141,255,0.42) 0%, rgba(155,123,255,0.22) 42%, rgba(5,6,10,0) 72%)",
-            }}
-          />
-        </motion.div>
-        <div
-          className="absolute -right-[12%] top-[8%] h-[560px] w-[560px] rounded-full opacity-40 blur-[110px] animate-drift"
-          style={{
-            animationDelay: "-8s",
-            background:
-              "radial-gradient(circle at 50% 50%, rgba(88,230,255,0.30), rgba(5,6,10,0) 68%)",
-          }}
-        />
-        <div
-          className="absolute -left-[14%] bottom-[2%] h-[520px] w-[520px] rounded-full opacity-45 blur-[120px] animate-drift"
-          style={{
-            animationDelay: "-15s",
-            background:
-              "radial-gradient(circle at 50% 50%, rgba(155,123,255,0.32), rgba(5,6,10,0) 70%)",
-          }}
-        />
-        {/* precision grid */}
-        <div
-          className="absolute inset-0 opacity-[0.3]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)",
-            backgroundSize: "88px 88px",
-            maskImage:
-              "radial-gradient(ellipse 78% 62% at 50% 42%, #000 20%, transparent 78%)",
-            WebkitMaskImage:
-              "radial-gradient(ellipse 78% 62% at 50% 42%, #000 20%, transparent 78%)",
-          }}
-        />
-        <ParticleField className="absolute inset-0 h-full w-full" />
-        <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-[#05060a] to-transparent" />
+          <p className="hero-meta whitespace-nowrap">
+            Technology studio
+            <span className="mx-2 opacity-40">/</span>
+            New York
+          </p>
+          <span className="hero-meta flex items-center gap-2.5">
+            Scroll
+            <span className="hero-rule" aria-hidden>
+              <span />
+            </span>
+          </span>
+        </div>
       </div>
 
-      <motion.div style={{ y, opacity, scale }} className="relative mx-auto w-full max-w-[1320px]">
-        <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10">
-          <div>
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-              className="glass glass-edge inline-flex items-center gap-2.5 rounded-full px-4 py-2"
-            >
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-[#58e6ff] animate-pulse-ring" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#58e6ff]" />
-              </span>
-              <span className="eyebrow !text-[0.6875rem] !text-white/70">
-                Technology studio · New York
-              </span>
-            </motion.div>
-
-            <h1 className="display mt-8 text-[clamp(2.75rem,8.4vw,7rem)] text-white">
-              {renderLine(LINE_1)}
-              {renderLine(LINE_2, true)}
-              {renderLine(LINE_3)}
-            </h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 18, filter: "blur(8px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              transition={{ duration: 0.9, delay: 0.42, ease: [0.16, 1, 0.3, 1] }}
-              className="mt-8 max-w-[38rem] text-[1.0625rem] leading-relaxed text-titanium sm:text-lg"
-            >
-              Bytes and Partners creates AI-powered products, scalable applications
-              and intelligent systems that help businesses transform — from a
-              regulated trading platform on five surfaces to the automation running
-              quietly behind a growing company.
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.55, ease: [0.16, 1, 0.3, 1] }}
-              className="mt-10 flex flex-wrap items-center gap-3.5"
-            >
-              <MagneticButton href="#work">
-                View our work
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
-                  <path
-                    d="M3 8h10M9 4l4 4-4 4"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </MagneticButton>
-              <MagneticButton href="#contact" variant="outline">
-                Start a conversation
-              </MagneticButton>
-            </motion.div>
-          </div>
-
-          {/* ---------- floating glass stack ---------- */}
-          <div className="relative hidden h-[460px] flex-col justify-center gap-4 lg:flex" aria-hidden>
-            <motion.div
-              style={{ x: t1x, y: t1y }}
-              initial={{ opacity: 0, y: 40, rotateX: 12 }}
-              animate={{ opacity: 1, y: 0, rotateX: 0 }}
-              transition={{ duration: 1.2, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="glass glass-edge ml-auto w-[290px] rounded-2xl p-4 shadow-lift"
-            >
-              <div className="flex items-center justify-between">
-                <span className="eyebrow !text-[0.625rem]">Agent runtime</span>
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />
-              </div>
-              <div className="mt-3.5 space-y-2.5">
-                {[
-                  ["Intake classified", "0.42s"],
-                  ["Enrichment complete", "1.08s"],
-                  ["CRM record written", "1.61s"],
-                ].map(([k, v], i) => (
-                  <div key={k} className="flex items-center justify-between text-[0.8125rem]">
-                    <span className="flex items-center gap-2 text-white/75">
-                      <span
-                        className="h-1 w-1 rounded-full"
-                        style={{ background: ["#58e6ff", "#4d8dff", "#9b7bff"][i] }}
-                      />
-                      {k}
-                    </span>
-                    <span className="font-mono text-[0.6875rem] text-titanium-dim">{v}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 h-1 overflow-hidden rounded-full bg-white/8">
-                <motion.div
-                  initial={{ width: "0%" }}
-                  animate={{ width: "82%" }}
-                  transition={{ duration: 2.2, delay: 1.3, ease: [0.16, 1, 0.3, 1] }}
-                  className="h-full rounded-full"
-                  style={{ background: "linear-gradient(90deg,#58e6ff,#4d8dff,#9b7bff)" }}
-                />
-              </div>
-            </motion.div>
-
-            <motion.div
-              style={{ x: t2x, y: t2y }}
-              initial={{ opacity: 0, y: 46 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1.2, delay: 0.68, ease: [0.16, 1, 0.3, 1] }}
-              className="glass glass-edge mr-auto w-[244px] rounded-2xl p-4 shadow-lift"
-            >
-              <span className="eyebrow !text-[0.625rem]">Uptime</span>
-              <p className="display mt-2 text-[2.1rem] text-white">99.98%</p>
-              <div className="mt-3 flex items-end gap-[3px]">
-                {[38, 52, 44, 67, 58, 79, 71, 88, 76, 94, 85, 100].map((v, i) => (
-                  <motion.span
-                    key={i}
-                    initial={{ height: 2 }}
-                    animate={{ height: `${v * 0.34}px` }}
-                    transition={{ duration: 0.8, delay: 1 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
-                    className="w-full rounded-sm"
-                    style={{
-                      background:
-                        i > 8
-                          ? "linear-gradient(180deg,#58e6ff,#4d8dff)"
-                          : "rgba(255,255,255,0.14)",
-                    }}
-                  />
-                ))}
-              </div>
-            </motion.div>
-
-            <motion.div
-              style={{ x: t3x, y: t3y }}
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1.2, delay: 0.86, ease: [0.16, 1, 0.3, 1] }}
-              className="glass glass-edge ml-auto flex w-[228px] items-center gap-3 rounded-2xl p-3.5 shadow-lift"
-            >
-              <div
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
-                style={{ background: "linear-gradient(135deg,rgba(88,230,255,0.22),rgba(155,123,255,0.22))" }}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M8 1.5 14 5v6l-6 3.5L2 11V5l6-3.5Z"
-                    stroke="#bcd4ff"
-                    strokeWidth="1.2"
-                    strokeLinejoin="round"
-                  />
-                  <circle cx="8" cy="8" r="2" fill="#7fb4ff" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-[0.8125rem] font-medium text-white">Model routed</p>
-                <p className="font-mono text-[0.6875rem] text-titanium-dim">p95 · 240ms</p>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-
-        {/* ---------- stat rail ---------- */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, delay: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-16 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/8 bg-white/[0.04] sm:mt-20 md:grid-cols-4"
-        >
-          {STATS.map((s) => (
-            <div key={s.l} className="bg-[#070810]/70 px-5 py-5 backdrop-blur-xl sm:px-6">
-              <p className="display text-[1.75rem] text-white sm:text-[2rem]">{s.v}</p>
-              <p className="mt-1 text-[0.8125rem] text-titanium-dim">{s.l}</p>
-            </div>
-          ))}
-        </motion.div>
-      </motion.div>
-
-      <motion.div
-        style={{ opacity }}
-        className="pointer-events-none absolute bottom-7 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 lg:flex"
-        aria-hidden
-      >
-        <span className="eyebrow !text-[0.5625rem]">Scroll</span>
-        <div className="h-9 w-px overflow-hidden bg-white/12">
-          <motion.div
-            animate={{ y: ["-100%", "220%"] }}
-            transition={{ duration: 2.1, repeat: Infinity, ease: "easeInOut" }}
-            className="h-4 w-px bg-gradient-to-b from-transparent via-white to-transparent"
-          />
-        </div>
-      </motion.div>
-    </section>
+      <NextScene />
+    </div>
   );
 }

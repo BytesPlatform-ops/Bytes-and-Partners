@@ -1,9 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/site/Header";
-import Footer from "@/components/site/Footer";
-import SmoothScroll from "@/components/site/SmoothScroll";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -11,12 +8,6 @@ const inter = Inter({
   display: "swap",
 });
 
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono-ui",
-  display: "swap",
-  weight: ["400", "500"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://bytesandpartners.co"),
@@ -66,8 +57,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#05060a",
-  colorScheme: "dark",
+  themeColor: "#f5f2ea",
+  colorScheme: "light",
   width: "device-width",
   initialScale: 1,
 };
@@ -120,8 +111,11 @@ const ORG_JSONLD = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${mono.variable}`}>
-      <body className="grain relative antialiased">
+    <html
+      lang="en"
+      className={inter.variable}
+    >
+      <body className="relative antialiased">
         <script
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger
@@ -129,14 +123,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[99] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-[#06070b]"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[120] focus:rounded-full focus:bg-ink focus:px-5 focus:py-2.5 focus:text-paper"
         >
           Skip to content
         </a>
-        <SmoothScroll />
-        <Header />
         <main id="main">{children}</main>
-        <Footer />
       </body>
     </html>
   );

@@ -1,9 +1,10 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Bytes and Partners — We Build Intelligent Digital Experiences";
+export const alt = "BytesPlatform — Bytes and Partners";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+/** A still of the page: the same composition, resolved. */
 export default async function OpengraphImage() {
   return new ImageResponse(
     (
@@ -14,83 +15,72 @@ export default async function OpengraphImage() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          background:
-            "radial-gradient(900px 520px at 22% 6%, rgba(77,141,255,0.30), transparent 62%), radial-gradient(700px 480px at 92% 96%, rgba(155,123,255,0.26), transparent 60%), #05060a",
-          padding: 72,
+          background: "#f5f2ea",
+          padding: 52,
           fontFamily: "sans-serif",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 13,
-              background: "linear-gradient(135deg,#58e6ff,#4d8dff 52%,#9b7bff)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#05060a",
-              fontSize: 26,
-              fontWeight: 700,
-            }}
-          >
-            B
-          </div>
-          <div style={{ display: "flex", color: "#f4f6fa", fontSize: 26, letterSpacing: -0.5 }}>
-            <span>Bytes</span>
-            <span style={{ color: "#8b929d" }}>&nbsp;and Partners</span>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div
-            style={{
-              color: "#f4f6fa",
-              fontSize: 82,
-              lineHeight: 1.02,
-              letterSpacing: -3.4,
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <span>We build intelligent</span>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            color: "#111111",
+            fontSize: 14,
+            letterSpacing: 2.4,
+            textTransform: "uppercase",
+            fontWeight: 600,
+          }}
+        >
+          <span>Bytes &amp; Partners</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 10, color: "#6b665d" }}>
             <span
-              style={{
-                background: "linear-gradient(100deg,#58e6ff,#4d8dff 46%,#9b7bff)",
-                backgroundClip: "text",
-                color: "transparent",
-              }}
-            >
-              digital experiences.
-            </span>
-          </div>
-          <div style={{ color: "#8b929d", fontSize: 25, marginTop: 26, maxWidth: 880 }}>
-            AI-powered products, scalable applications and intelligent systems —
-            engineered in-house through BytesPlatform.
-          </div>
+              style={{ width: 7, height: 7, borderRadius: 999, background: "#2457ff" }}
+            />
+            Start a project
+          </span>
         </div>
 
         <div
           style={{
             display: "flex",
-            gap: 14,
-            color: "#7d8593",
-            fontSize: 19,
-            borderTop: "1px solid rgba(255,255,255,0.10)",
-            paddingTop: 22,
+            alignItems: "baseline",
+            color: "#111111",
+            fontSize: 176,
+            fontWeight: 800,
+            letterSpacing: -9,
+            lineHeight: 1,
           }}
         >
-          <span>AI Agents</span>
-          <span>·</span>
-          <span>Web &amp; Mobile</span>
-          <span>·</span>
-          <span>CRM Platforms</span>
-          <span>·</span>
-          <span>Custom Software</span>
+          BytesPlatform
+          {/* drawn, not typed: Satori's fallback face renders a square period */}
+          <span
+            style={{
+              display: "flex",
+              width: 30,
+              height: 30,
+              borderRadius: 999,
+              background: "#2457ff",
+              marginLeft: 14,
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            color: "#6b665d",
+            fontSize: 13,
+            letterSpacing: 2,
+            textTransform: "uppercase",
+          }}
+        >
+          <span>Technology studio / New York</span>
+          <span>bytesandpartners.co</span>
         </div>
       </div>
     ),
-    size
+    size,
   );
 }
