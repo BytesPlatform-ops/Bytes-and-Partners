@@ -44,59 +44,32 @@ viewport from 320 to 1920.
 ## The field
 
 `BytesPlatform.` is a real `<h1>` — live, selectable, crisp — and it is never
-drawn, animated or touched by the shader. It has no reveal animation of its
-own at all.
+drawn, animated or touched by the shader. It has no reveal animation at all:
+the composition is simply there on first paint.
 
-`lib/hero/fluid.ts` is a **reveal mask**, not a layer of ink. The hero content
-sits in the DOM beneath an opaque cover the exact colour of the page; the
-shader paints that cover and punches it away wherever the fluid has reached.
-What appears inside the shape is the real composition showing through.
+`lib/hero/metaballTrail.ts` is one canvas **above** the word. A chain of 20
+points chases the pointer — the head eases toward it, every point after that
+eases toward the one in front — and the shader draws a tapered capsule between
+each pair of neighbours, melted together with a smooth minimum, so the chain is
+one continuous liquid body at any speed.
 
-```
-cover alpha = (1 - revealed) * (1 - open)
-```
+Inside the body it paints the photograph, with the headline redrawn over it in
+white: the real letters are rasterised at the exact positions the browser laid
+them out, and the shader reads the word's box every frame so the white copy
+follows the scroll parallax. Outside the body the canvas is transparent. It is
+all ordinary alpha compositing, so the antialiased edge blends cleanly.
 
-Getting this backwards is what made two earlier attempts read as "a grey blob
-moving above the text": they painted the fluid *on top of* the page as its own
-visible layer, so it could only ever be a shape sitting over the composition
-rather than the thing uncovering it.
-
-Driving it is a genuine feedback simulation. Two RGBA framebuffers are
-ping-ponged; each frame the previous field is resampled along a velocity field
-(advection), faded (decay), and fresh fluid is injected along the segment the
-head travelled that frame (splat):
-
-```
-field(n) = advect(field(n-1), velocity) * decay + splat(head)
-```
-
-The channels carry `R` live density, `G` freshness (the working front, which
-decays fastest and colours the edge) and `B` revealed ground — which does not
-decay, so the composition stays open behind the fluid instead of closing up.
-
-Three things are load-bearing:
-
-- **The splat is a capsule, not a point.** Injecting at the head position alone
-  lays a string of beads at speed; injecting along the segment covered that
-  frame lays a continuous front.
-- **The mask lookup is heavily domain-warped** — two drifting fbm octaves at a
-  scale large enough to deform the whole silhouette. That is where the
-  ink-spreading edge comes from; without it the opening is a soft circle.
-- **`open` forces the cover fully away at the end**, so the final frame is
-  guaranteed clean no matter what the simulation is doing.
+The body only exists while the pointer moves: an energy value follows the
+averaged pointer speed, and as it drains the body breaks into droplets and is
+gone within about a second. The chain is then gathered back at the pointer so
+the next movement forms it in place.
 
 ## Scroll
 
-Scrolling runs the same system backwards rather than fading it out. A
-`reclaim` uniform decays the revealed channel, so the cover closes back over
-the hero with the same organic edge while the head is driven downward ahead of
-it, and the next scene arrives behind it.
+Scrolling carries the word up and lifts the footer away, driven off one GSAP
+ticker. The header is fixed and never moves. The trail pauses while the hero is off screen.
 
-At rest the hero is fully open and there is nothing to composite, so the canvas
-is taken out of the page entirely and the GPU does no work at all until you
-scroll.
-
-## Structure## Structure## Structure
+## Structure
 
 ```
 src/
@@ -105,13 +78,16 @@ src/
     page.tsx          renders <Hero />
     globals.css       tokens, the hero type scale, fallbacks
   components/hero/
-    Hero.tsx          orchestrator: timeline, one ticker, exit, teardown
-    HeroField.tsx     the canvas — the cover above the content, never draws type
+    Hero.tsx          orchestrator: pointer, trail, scroll, teardown
+    HeroInk.tsx       the trail canvas
     HeroNav.tsx       identity, one action, one control
     HeroTypography.tsx the word — real HTML, two lines in markup
-    NextScene.tsx     placeholder, so the exit has a destination
+  components/sections/
+    FluidVideoTransition.tsx  the reel: ScrollTrigger plays/reverses a GSAP timeline
   lib/
-    hero/fluid.ts         the ping-pong simulation and the cover shader
+    hero/metaballTrail.ts the metaball trail shader
+    fluid/                the reel's sheet geometry and Three.js renderer
+    shaders/              the reel's GLSL
     animation/            device probes, scroll + anchor routing
 ```
 
@@ -132,23 +108,19 @@ horizontal scroll anywhere, and the word never collides with the footer.
 
 ## Performance
 
-- One `requestAnimationFrame` for the page: GSAP's ticker drives the timeline,
-  Lenis and the shader.
+- One `requestAnimationFrame` for the page: GSAP's ticker drives Lenis, the
+  scroll parallax and the shader.
 - No React state in any animation path; the orchestrator is one effect.
-- The simulation runs at 60% of layout resolution (40% on touch) with DPR
-  capped at 1.5 — independent of device DPR, and two passes per frame. The
-  canvas always *covers* the hero; only the buffers are scaled. Setting the CSS
-  size from the buffer size pins a low-res field to the top-left corner at a
-  fraction of the layout size.
+- The trail is a single full-screen pass on one canvas with no framebuffers —
+  the chain of points is its memory. DPR is capped at 2 (1.5 on touch).
 - Rendering is skipped when the hero is off screen (`IntersectionObserver`) or
   the tab is hidden.
-- Ink is only injected while something is actually moving, so a resting pointer
-  lets the field decay to nothing and the hero returns to clean cream.
-- Pointer input is lerped; the field bends toward the cursor and never chases it.
-- `reveal.destroy()` releases the texture, buffer, program and context.
+- The chain's easing is frame-rate independent, so it follows at the same pace
+  on 60 Hz and 120 Hz displays.
+- `trail.destroy()` releases the buffer, vertex array and program.
 
-Measured in Chrome at 1440×900: **16.7 ms median and p95** idle, on pointer
-move, and while scrolling.
+Measured in Chrome at 1280×800 on an Apple M4: a steady **60 fps** while the
+trail is moving.
 
 ## Fallbacks
 

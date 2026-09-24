@@ -1,10 +1,14 @@
 /**
  * Deliberately not a navbar. An identity, one action, one control — thin
  * borders, no fills, no shadows, nothing that reads as a SaaS button bar.
+ *
+ * Fixed above the whole page, in its own layer: it never scrolls, fades or
+ * takes part in any section's animation. The bar itself lets clicks through;
+ * only its children catch them.
  */
 export default function HeroNav() {
   return (
-    <header className="relative z-20 flex items-start justify-between gap-6 px-[var(--bp-gut)] pt-[var(--bp-gut)]">
+    <header className="pointer-events-none fixed inset-x-0 top-0 z-50 flex items-start justify-between gap-6 px-[var(--bp-gut)] pt-[var(--bp-gut)] [&>*]:pointer-events-auto">
       <a
         href="#top"
         aria-label="Bytes and Partners — home"

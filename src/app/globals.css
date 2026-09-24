@@ -10,6 +10,7 @@
   --color-ink: #111111;
   --color-ink-mute: #6b665d;
   --color-blue: #2457ff;
+  --color-ember: #ff5b2e;
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
@@ -80,8 +81,8 @@
     font-weight: 800;
     line-height: 0.84;
     letter-spacing: -0.05em;
-    /* Flat ink, always. The word is not animated — the fluid mask above it
-       is what reveals it, so there is nothing here to keep in sync. */
+    /* Flat ink. Inside the trail blob it reads white — not here: the trail
+       canvas above it redraws the letters in white (metaballTrail.ts). */
     color: var(--bp-text);
     will-change: transform;
     /* the box must contain the descenders, or they reach the footer */
@@ -110,11 +111,17 @@
     .hero-line { display: inline; }
   }
 
-  .hero-strut {
-    display: inline-block;
-    width: 0;
-    height: 0;
-    overflow: hidden;
+  /* ------------------------------------------------ the morph reveal
+     Letters wait hidden only while the morph is pending. Hero.tsx flips
+     data-morph to "run" (threshold filter on) and then "done" (filter off,
+     plain text). If the script never gets there, the failsafe shows the word
+     anyway — it can never be stuck invisible. */
+  .hero-word[data-morph="pending"] .hero-char {
+    opacity: 0;
+    animation: hero-morph-failsafe 0.01s 2.5s forwards;
+  }
+  .hero-word[data-morph="run"] {
+    filter: url(#hero-morph);
   }
 
   .hero-period {
@@ -214,6 +221,20 @@
   }
 }
 
+/* The reel section's statement retires as the panel grows over it. The
+   timeline tweens --fade 0 → 1 on the section; only at lg and up, where the
+   panel and the statement share the row. */
+@media (min-width: 1024px) {
+  [data-fluid-copy] {
+    opacity: clamp(0, calc(1 - var(--fade, 0) * 2.2), 1);
+    translate: 0 calc(var(--fade, 0) * -32px);
+  }
+}
+
+@keyframes hero-morph-failsafe {
+  to { opacity: 1; }
+}
+
 @keyframes bp-tick {
   0%   { transform: translateY(-120%); }
   100% { transform: translateY(260%); }
@@ -227,11 +248,13 @@
 /* With no JS the cover is never painted, so the composition is simply there.
    Hiding the canvas outright removes any chance of an unrendered artefact. */
 @media (scripting: none) {
-  [data-field] { display: none; }
+  [data-ink] { display: none; }
+  .hero-word[data-morph] .hero-char { opacity: 1; animation: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-field] { display: none; }
+  [data-ink] { display: none; }
+  .hero-word[data-morph] .hero-char { opacity: 1; animation: none; }
 
   *, *::before, *::after {
     animation-duration: 0.001ms !important;

@@ -20,8 +20,19 @@ export const scrollState = {
 
 type Teardown = () => void;
 
+type LenisLike = {
+  raf(t: number): void;
+  destroy(): void;
+  stop(): void;
+  start(): void;
+  on(e: string, cb: (a: { scroll: number; progress: number; velocity: number }) => void): void;
+  scrollTo(target: string | number | HTMLElement, opts?: Record<string, unknown>): void;
+};
+
 let mounted = 0;
 let teardown: Teardown | null = null;
+/** the live Lenis instance, if smooth scrolling is on — for lockScroll */
+let activeLenis: LenisLike | null = null;
 
 function readWindow() {
   const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
@@ -39,12 +50,7 @@ export function mountScroll(opts: { smooth: boolean }): Teardown {
   if (teardown) return release;
 
   let prevY = window.scrollY;
-  let lenis: {
-    raf(t: number): void;
-    destroy(): void;
-    on(e: string, cb: (a: { scroll: number; progress: number; velocity: number }) => void): void;
-    scrollTo(target: string | number | HTMLElement, opts?: Record<string, unknown>): void;
-  } | null = null;
+  let lenis: LenisLike | null = null;
   let cancelled = false;
 
   readWindow();
@@ -80,7 +86,8 @@ export function mountScroll(opts: { smooth: boolean }): Teardown {
         scrollState.y = scroll;
         scrollState.progress = progress;
       });
-      lenis = instance as unknown as typeof lenis;
+      lenis = instance as unknown as LenisLike;
+      activeLenis = lenis;
     });
   } else {
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -117,6 +124,7 @@ export function mountScroll(opts: { smooth: boolean }): Teardown {
     document.removeEventListener("click", onAnchorClick);
     lenis?.destroy();
     lenis = null;
+    activeLenis = null;
   };
 
   return release;
@@ -129,4 +137,49 @@ function release() {
     teardown = null;
     mounted = 0;
   }
+}
+
+const SCROLL_KEYS = new Set([" ", "PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown"]);
+
+/**
+ * Freezes the page where it is — for a pinned scene that must play out
+ * without the page moving underneath it. Stops Lenis (which also kills its
+ * momentum), blocks wheel / touch / scroll keys, and holds the native scroll
+ * position against inertia already in flight. Returns the release.
+ *
+ * Deliberately NOT overflow: hidden — hiding the scrollbar would reflow the
+ * page by its width and visibly jump the layout.
+ */
+export function lockScroll(): () => void {
+  const y = window.scrollY;
+  activeLenis?.stop();
+  const block = (e: Event) => {
+    if (e.cancelable) e.preventDefault();
+  };
+  const blockKeys = (e: KeyboardEvent) => {
+    if (SCROLL_KEYS.has(e.key)) e.preventDefault();
+  };
+  const hold = () => {
+    if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
+  };
+  window.addEventListener("wheel", block, { passive: false, capture: true });
+  window.addEventListener("touchmove", block, { passive: false, capture: true });
+  window.addEventListener("keydown", blockKeys, { capture: true });
+  window.addEventListener("scroll", hold, { passive: true });
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    window.removeEventListener("wheel", block, { capture: true });
+    window.removeEventListener("touchmove", block, { capture: true });
+    window.removeEventListener("keydown", blockKeys, { capture: true });
+    window.removeEventListener("scroll", hold);
+    activeLenis?.start();
+  };
+}
+
+/** jumps the page to y at once, keeping Lenis in step */
+export function jumpTo(y: number) {
+  if (activeLenis) activeLenis.scrollTo(y, { immediate: true, force: true });
+  else window.scrollTo(0, y);
 }
