@@ -157,9 +157,17 @@ export default function Footer() {
           <p className="font-mono text-[0.6875rem] text-titanium-dim">
             © {year} Bytes and Partners. All rights reserved.
           </p>
-          <p className="font-mono text-[0.6875rem] text-titanium-dim">
-            Designed &amp; engineered in-house · New York
-          </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+            <Link
+              href="/refund-policy"
+              className="font-mono text-[0.6875rem] text-titanium-dim transition-colors hover:text-white"
+            >
+              Refund Policy
+            </Link>
+            <p className="font-mono text-[0.6875rem] text-titanium-dim">
+              Designed &amp; engineered in-house · New York
+            </p>
+          </div>
         </div>
       </div>
     </footer>
