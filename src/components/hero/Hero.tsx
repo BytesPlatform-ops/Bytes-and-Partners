@@ -9,7 +9,7 @@ import HeroNav from "./HeroNav";
 import HeroInk from "./HeroInk";
 import HeroTypography from "./HeroTypography";
 
-import { createMetaballTrail, type MetaballTrail } from "@/lib/hero/metaballTrail";
+import { createInkTrail, type InkTrail } from "@/lib/hero/inkTrail";
 import { prefersReducedMotion, isCoarsePointer, fontsReady } from "@/lib/animation/prefs";
 import { mountScroll } from "@/lib/animation/scroll";
 
@@ -33,7 +33,7 @@ export default function Hero() {
     const coarse = isCoarsePointer();
     const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2);
 
-    let trail: MetaballTrail | null = null;
+    let trail: InkTrail | null = null;
     let cards: FloatingCards | null = null;
     const cardLoading = new AbortController();
     /** last pointer position in client px */
@@ -56,7 +56,7 @@ export default function Hero() {
       if (!loaded) return;
       if (cardLoading.signal.aborted) { loaded.destroy(); return; }
       cards = loaded;
-      trail = createMetaballTrail(contentCanvas, cards.canvas);
+      trail = createInkTrail(contentCanvas, cards.canvas);
       if (!trail) { cards.destroy(); cards = null; return; }
       layout();
       gsap.ticker.add(trailTick);
