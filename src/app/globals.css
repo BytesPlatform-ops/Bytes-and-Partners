@@ -81,8 +81,7 @@
     font-weight: 800;
     line-height: 0.84;
     letter-spacing: -0.05em;
-    /* Flat ink. Inside the trail blob it reads white — not here: the trail
-       canvas above it redraws the letters in white (metaballTrail.ts). */
+    /* Text keeps its ink color above the masked card animation. */
     color: var(--bp-text);
     will-change: transform;
     /* the box must contain the descenders, or they reach the footer */

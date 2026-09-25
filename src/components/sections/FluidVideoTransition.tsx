@@ -351,14 +351,14 @@ export default function FluidVideoTransition() {
       />
 
       {debug && (
-        <div className="absolute bottom-4 left-4 z-20 flex flex-wrap items-center gap-1 rounded-lg border border-black/15 bg-white/90 p-1.5 font-mono text-[11px] backdrop-blur">
+        <div className="absolute bottom-4 left-4 z-20 flex flex-wrap items-center gap-1 rounded-lg border border-black/15 bg-paper/90 p-1.5 font-mono text-[11px] backdrop-blur">
           {DEBUG_MODES.map((label, i) => (
             <button
               key={label}
               type="button"
               data-fluid-mode={i}
               onClick={() => setMode(i)}
-              className={`rounded px-2.5 py-1.5 ${mode === i ? "bg-black text-white" : "text-black/60 hover:text-black"}`}
+              className={`rounded px-2.5 py-1.5 ${mode === i ? "bg-black text-paper" : "text-black/60 hover:text-black"}`}
             >
               {label}
             </button>

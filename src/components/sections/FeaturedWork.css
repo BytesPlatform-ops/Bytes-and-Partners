@@ -4,10 +4,10 @@
 [data-work-canvas] { transition: filter 700ms ease, opacity 700ms ease; }
 [data-work-canvas].work-case-open { filter: blur(14px); opacity: 0.18; }
 [data-work-canvas]:focus-visible { outline: 2px solid #648fc3; outline-offset: -5px; }
-.work-case-study { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; border: 0; background: rgba(244, 241, 235, 0.97); color: #283945; overflow-y: auto; overscroll-behavior: contain; font-family: Arial, sans-serif; }
+.work-case-study { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; border: 0; background: rgba(245, 242, 234, 0.97); color: #283945; overflow-y: auto; overscroll-behavior: contain; font-family: Arial, sans-serif; }
 .work-case-study::backdrop { background: rgba(227, 234, 238, 0.3); }
 .case-content { max-width: 1240px; margin: auto; padding: 110px 64px 64px; }
-.case-close { position: fixed; z-index: 2; top: 24px; left: 32px; padding: 14px 20px; border: 1px solid #b6c6ce; border-radius: 30px; background: #f5f4efed; color: #314658; cursor: pointer; }
+.case-close { position: fixed; z-index: 2; top: 24px; left: 32px; padding: 14px 20px; border: 1px solid #b6c6ce; border-radius: 30px; background: #f5f2eaed; color: #314658; cursor: pointer; }
 .case-close span { margin-left: 30px; font-size: 10px; opacity: .55; }
 .case-header { margin-bottom: 32px; }
 .case-eyebrow, .case-chapters span { font-size: 11px; text-transform: uppercase; letter-spacing: .16em; color: #60778a; }
@@ -15,7 +15,7 @@
 .case-header > p:last-child { font-size: 13px; color: #60778a; }
 .case-hero { position: relative; aspect-ratio: 16 / 8; border-radius: 22px; overflow: hidden; background: #c5d2d8; transform-origin: top left; box-shadow: 0 24px 70px #415c7520; }
 .case-hero video { width: 100%; height: 100%; object-fit: cover; display: block; }
-.case-caption { position: absolute; right: 20px; top: 20px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: white; background: #23374780; padding: 8px 12px; border-radius: 20px; pointer-events: none; }
+.case-caption { position: absolute; right: 20px; top: 20px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--color-paper); background: #23374780; padding: 8px 12px; border-radius: 20px; pointer-events: none; }
 .case-overview { display: grid; grid-template-columns: 1fr 1fr; gap: 70px; padding: 85px 0; }
 .work-case-study h2 { font-family: Rajdhani, 'Arial Narrow', sans-serif; font-size: 36px; line-height: 1.1; font-weight: 600; margin: 16px 0; }
 .work-case-study p { line-height: 1.75; }
@@ -25,11 +25,11 @@
 .case-chapters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px; border-top: 1px solid #cbd4d7; padding: 48px 0 70px; }
 .case-chapters h2 { font-size: 28px; }
 .case-footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #cbd4d7; padding-top: 30px; }
-.case-return { border: 0; background: #304b62; color: white; padding: 17px 23px; border-radius: 30px; cursor: pointer; }
+.case-return { border: 0; background: #304b62; color: var(--color-paper); padding: 17px 23px; border-radius: 30px; cursor: pointer; }
 .work-case-open .case-header, .work-case-open .case-overview, .work-case-open .case-chapters, .work-case-open .case-footer { animation: case-reveal 900ms both; }
 @keyframes case-reveal { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
 @media(max-width: 700px) { .case-content { padding: 100px 22px 35px; } .case-close { left: 20px; top: 20px; } .case-overview, .case-chapters { grid-template-columns: 1fr; gap: 28px; padding: 40px 0; } .case-hero { aspect-ratio: 4 / 3; } .case-footer { align-items: flex-start; flex-direction: column; gap: 20px; } }
 @media(prefers-reduced-motion: reduce) { [data-work-canvas] { transition: none; } .work-case-study * { animation: none !important; } }
 .work-case-study[open] { animation: case-shell 700ms ease both; }
-@keyframes case-shell { from { background-color: rgba(244, 241, 235, 0); } to { background-color: rgba(244, 241, 235, .97); } }
+@keyframes case-shell { from { background-color: rgba(245, 242, 234, 0); } to { background-color: rgba(245, 242, 234, .97); } }
 @media(prefers-reduced-motion: reduce) { .work-case-study[open] { animation: none; } }

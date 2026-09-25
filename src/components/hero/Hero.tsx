@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 
+import { createFloatingCards, type FloatingCards } from "@/lib/hero/floatingCards";
+
 import HeroNav from "./HeroNav";
 import HeroInk from "./HeroInk";
 import HeroTypography from "./HeroTypography";
@@ -10,9 +12,6 @@ import HeroTypography from "./HeroTypography";
 import { createMetaballTrail, type MetaballTrail } from "@/lib/hero/metaballTrail";
 import { prefersReducedMotion, isCoarsePointer, fontsReady } from "@/lib/animation/prefs";
 import { mountScroll } from "@/lib/animation/scroll";
-
-/** the photograph the trail reveals */
-const PHOTO_SRC = "/hero/ground.jpg";
 
 export default function Hero() {
   const root = useRef<HTMLDivElement>(null);
@@ -24,8 +23,7 @@ export default function Hero() {
     const q = <T extends Element>(s: string) => el.querySelector<T>(s);
 
     const hero = q<HTMLElement>("[data-hero]");
-    const photoCanvas = q<HTMLCanvasElement>("[data-ink]");
-    const invertCanvas = q<HTMLCanvasElement>("[data-ink-invert]");
+    const contentCanvas = q<HTMLCanvasElement>("[data-ink]");
     const word = q<HTMLElement>("[data-word]");
     const period = q<HTMLElement>("[data-period]");
     const footer = q<HTMLElement>("[data-hero-foot]");
@@ -36,6 +34,8 @@ export default function Hero() {
     const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2);
 
     let trail: MetaballTrail | null = null;
+    let cards: FloatingCards | null = null;
+    const cardLoading = new AbortController();
     /** last pointer position in client px */
     const pointer = { cx: 0, cy: 0, has: false };
     let releaseScroll: (() => void) | null = null;
@@ -44,30 +44,22 @@ export default function Hero() {
     // ------------------------------------------------------------ geometry
     function layout() {
       const r = hero!.getBoundingClientRect();
+      cards?.resize(r.width, r.height);
       trail?.resize(r.width, r.height, dpr);
     }
 
     // --------------------------------------------------------------- trail
-    // A metaball chain chasing the pointer. Inside the blob the photo shows,
-    // and the type it passes over turns white.
-    let trailCancelled = false;
-    function startTrail() {
-      if (!photoCanvas || !invertCanvas) return;
-      const photo = new Image();
-      photo.decoding = "async";
-      photo.src = PHOTO_SRC;
-      photo
-        .decode()
-        .then(() => {
-          if (trailCancelled) return;
-          trail = createMetaballTrail(invertCanvas, photoCanvas, photo);
-          if (!trail) return; // no WebGL2: the hero is simply plain type
-          layout();
-          gsap.ticker.add(trailTick);
-        })
-        .catch(() => {
-          // no photo: no trail, plain type
-        });
+    // The blob reveals a live, depth-sorted card scene.
+    async function startTrail() {
+      if (!contentCanvas) return;
+      const loaded = await createFloatingCards(cardLoading.signal);
+      if (!loaded) return;
+      if (cardLoading.signal.aborted) { loaded.destroy(); return; }
+      cards = loaded;
+      trail = createMetaballTrail(contentCanvas, cards.canvas);
+      if (!trail) { cards.destroy(); cards = null; return; }
+      layout();
+      gsap.ticker.add(trailTick);
     }
 
     const onPointerMove = (e: PointerEvent) => {
@@ -79,15 +71,16 @@ export default function Hero() {
 
     const trailTick = (_t: number, dt: number) => {
       if (!trail || document.hidden || !visible) return;
-      if (pointer.has) {
-        const r = hero.getBoundingClientRect();
-        trail.setMouse((pointer.cx - r.left) / r.width, 1 - (pointer.cy - r.top) / r.height);
-      }
-      trail.render(Math.min(dt, 50) / 1000);
-      // both layers have a real frame now, so both may show
-      if (photoCanvas!.style.visibility) {
-        photoCanvas!.style.visibility = "";
-        invertCanvas!.style.visibility = "";
+      const r = hero.getBoundingClientRect();
+      const x = pointer.has ? (pointer.cx - r.left) / r.width : 0.5;
+      const y = pointer.has ? 1 - (pointer.cy - r.top) / r.height : 0.5;
+      trail.setMouse(x, y);
+      const delta = Math.min(dt, 50) / 1000;
+      cards?.render(delta, x, y);
+      trail.render(delta);
+      // Show the canvas once its first frame is ready
+      if (contentCanvas!.style.visibility) {
+        contentCanvas!.style.visibility = "";
       }
     };
 
@@ -217,7 +210,7 @@ export default function Hero() {
 
     releaseScroll = mountScroll({ smooth: !coarse });
     gsap.ticker.add(scrollTick);
-    startTrail();
+    void startTrail();
     // wait for the webfont so the letters condense into their final shapes
     fontsReady(900).then(() => {
       if (!cancelled) runMorph();
@@ -225,7 +218,7 @@ export default function Hero() {
 
     function cleanup() {
       cancelled = true;
-      trailCancelled = true;
+      cardLoading.abort();
       morphTl?.kill();
       // never leave the word blurred or filtered behind a killed timeline
       finishMorph?.();
@@ -241,6 +234,8 @@ export default function Hero() {
       releaseScroll?.();
       trail?.destroy();
       trail = null;
+      cards?.destroy();
+      cards = null;
     }
 
     return cleanup;

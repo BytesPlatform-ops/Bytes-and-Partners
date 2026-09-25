@@ -98,7 +98,7 @@ export default function FeaturedWork() {
       ref={root}
       data-featured-work
       aria-label="Featured work"
-      className="relative h-[100svh] overflow-hidden bg-[#f4f1eb]"
+      className="relative h-[100svh] overflow-hidden bg-paper"
     >
       <canvas data-work-canvas className="absolute inset-0 h-full w-full" />
     </section>

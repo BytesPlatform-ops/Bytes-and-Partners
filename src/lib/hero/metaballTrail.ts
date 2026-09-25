@@ -7,21 +7,9 @@
  * little sine irregularity and an fbm distortion keep the silhouette organic,
  * and a tight smoothstep turns the field into a hard-edged blob.
  *
- * The same blob is drawn into two canvases, both ABOVE the page content:
- *
- *   invert (z-15)  white inside the blob, mix-blend-mode: difference. Under
- *                  the blob, black type turns white and the paper turns
- *                  near-black.
- *   photo  (z-16)  the photograph inside the blob, mix-blend-mode: lighten.
- *                  Over that near-black paper, lighten gives the photo at its
- *                  true colours; over the now-white type, it keeps white.
- *
- * So inside the blob: the photo, with the type knocked out of it in white.
- * Nothing is ever pre-inverted, so the photo cannot come out as a negative
- * even if one layer fails — and the two draw with identical uniforms each
- * frame, so their edges coincide.
- *
- * One pass per canvas, no framebuffers: the chain itself is the memory.
+ * The animated card texture is masked into one transparent canvas beneath
+ * the HTML typography. Normal compositing preserves the original text color.
+ * One pass, no framebuffers: the chain itself is the memory.
  */
 
 /** points the shader reads; the chain beyond this would never reach it */
@@ -44,9 +32,8 @@ out vec4 outColor;
 uniform float uTime;
 uniform vec2  uResolution;
 uniform vec2  uTrail[${TRAIL_POINTS}];
-uniform float uMode;       // 0 = invert (white blob), 1 = photo
-uniform sampler2D uPhoto;
-uniform float uPhotoAspect; // image width / height
+uniform sampler2D uContent;
+uniform float uContentAspect; // image width / height
 
 // ======================================
 // RANDOM
@@ -128,19 +115,15 @@ void main() {
   // ======================================
   // TURN FIELD INTO A HARD-EDGED SHAPE
   // ======================================
-  float blob = smoothstep(1.0, 1.05, field);
+  // Antialias the mask over approximately one screen pixel.
+  float edge = max(fwidth(field), 0.0001);
+  float blob = smoothstep(1.0 - edge, 1.0 + edge, field);
 
-  if (uMode < 0.5) {
-    // the inversion layer: white inside the blob, nothing outside it
-    outColor = vec4(vec3(1.0), blob);
-    return;
-  }
-
-  // the photograph, object-fit: cover over the canvas
+  // the animated card scene, object-fit: cover over the canvas
   vec2 q = uv - 0.5;
-  if (aspect > uPhotoAspect) q.y *= uPhotoAspect / aspect;
-  else q.x *= aspect / uPhotoAspect;
-  outColor = vec4(texture(uPhoto, q + 0.5).rgb, blob);
+  if (aspect > uContentAspect) q.y *= uContentAspect / aspect;
+  else q.x *= aspect / uContentAspect;
+  outColor = vec4(texture(uContent, q + 0.5).rgb, blob);
 }
 `;
 
@@ -165,14 +148,14 @@ function compile(gl: WebGL2RenderingContext, type: number, src: string) {
   return sh;
 }
 
-/** one canvas running the trail shader in one mode */
+/** One canvas running the masked card shader. */
 type View = {
   resize(cssW: number, cssH: number, dpr: number): void;
   draw(time: number, trail: Float32Array): void;
   destroy(): void;
 };
 
-function createView(canvas: HTMLCanvasElement, mode: 0 | 1, photo?: HTMLImageElement): View | null {
+function createView(canvas: HTMLCanvasElement, content: HTMLCanvasElement): View | null {
   const gl = canvas.getContext("webgl2", {
     alpha: true,
     premultipliedAlpha: false,
@@ -210,26 +193,27 @@ function createView(canvas: HTMLCanvasElement, mode: 0 | 1, photo?: HTMLImageEle
     resolution: gl.getUniformLocation(prog, "uResolution"),
     trail: gl.getUniformLocation(prog, "uTrail"),
   };
-  gl.uniform1f(gl.getUniformLocation(prog, "uMode"), mode);
 
   let tex: WebGLTexture | null = null;
-  if (photo) {
+  if (content) {
     tex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, photo);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, content);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.uniform1i(gl.getUniformLocation(prog, "uPhoto"), 0);
+    gl.uniform1i(gl.getUniformLocation(prog, "uContent"), 0);
     gl.uniform1f(
-      gl.getUniformLocation(prog, "uPhotoAspect"),
-      photo.naturalWidth / Math.max(1, photo.naturalHeight),
+      gl.getUniformLocation(prog, "uContentAspect"),
+      content.width / Math.max(1, content.height),
     );
   }
 
+  let textureWidth = content?.width ?? 0;
+  let textureHeight = content?.height ?? 0;
   let lost = false;
   const onLost = (e: Event) => {
     e.preventDefault();
@@ -250,6 +234,19 @@ function createView(canvas: HTMLCanvasElement, mode: 0 | 1, photo?: HTMLImageEle
 
     draw(time, trail) {
       if (lost) return;
+      if (content && tex) {
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        if (content.width !== textureWidth || content.height !== textureHeight) {
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, content);
+          textureWidth = content.width;
+          textureHeight = content.height;
+          gl.uniform1f(gl.getUniformLocation(prog, "uContentAspect"), textureWidth / textureHeight);
+        } else {
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, content);
+        }
+      }
       gl.uniform1f(u.time, time);
       gl.uniform2fv(u.trail, trail);
       gl.clearColor(0, 0, 0, 0);
@@ -270,22 +267,13 @@ function createView(canvas: HTMLCanvasElement, mode: 0 | 1, photo?: HTMLImageEle
   };
 }
 
-/**
- * `invertCanvas` and `photoCanvas` both sit above the content; see the header.
- * Returns null if either cannot start — then the hero is simply plain type.
- */
+/** Returns null when WebGL is unavailable, leaving the plain HTML hero. */
 export function createMetaballTrail(
-  invertCanvas: HTMLCanvasElement,
-  photoCanvas: HTMLCanvasElement,
-  photo: HTMLImageElement,
+  contentCanvas: HTMLCanvasElement,
+  content: HTMLCanvasElement,
 ): MetaballTrail | null {
-  const invertView = createView(invertCanvas, 0);
-  const photoView = invertView ? createView(photoCanvas, 1, photo) : null;
-  if (!invertView || !photoView) {
-    invertView?.destroy();
-    return null;
-  }
-  const views = [invertView, photoView];
+  const view = createView(contentCanvas, content);
+  if (!view) return null;
 
   const mouse = { x: 0.5, y: 0.5 };
   /** the chain: [x0, y0, x1, y1, …], head first, all starting at the centre */
@@ -303,7 +291,7 @@ export function createMetaballTrail(
 
     resize(cssW, cssH, dpr) {
       if (cssW < 2 || cssH < 2) return;
-      for (const v of views) v.resize(cssW, cssH, dpr);
+      view.resize(cssW, cssH, dpr);
     },
 
     render(dt) {
@@ -321,12 +309,11 @@ export function createMetaballTrail(
         trail[i * 2 + 1] += (trail[(i - 1) * 2 + 1] - trail[i * 2 + 1]) * follow;
       }
 
-      // both canvases, same frame, same uniforms — their edges coincide
-      for (const v of views) v.draw(time, trail);
+      view.draw(time, trail);
     },
 
     destroy() {
-      for (const v of views) v.destroy();
+      view.destroy();
     },
   };
 }

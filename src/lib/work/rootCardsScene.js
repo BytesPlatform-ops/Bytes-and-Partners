@@ -134,7 +134,7 @@ const CARD_TEXT_SCALE = 1;
 
 const CARD_TEXT_FONT_SIZE = 84;
 
-const CARD_TEXT_COLOR = '#ffffff'; // Heading color, including the text shader.
+const CARD_TEXT_COLOR = '#f5f2ea'; // Heading color, including the text shader.
 const CARD_TEXT_OPACITY = 0.84;
 const CARD_TEXT_FLOW = 0.0025;
 const CARD_TEXT_FONT = 'Rajdhani';
@@ -170,16 +170,16 @@ const backgroundCanvas = document.createElement('canvas');
 backgroundCanvas.width = 1024;
 backgroundCanvas.height = 1024;
 const backgroundContext = backgroundCanvas.getContext('2d');
-backgroundContext.fillStyle = '#f4f1eb';
+backgroundContext.fillStyle = '#f5f2ea';
 backgroundContext.fillRect(0, 0, 1024, 1024);
 for (const [x, y, radius, color] of [
   [180, 300, 740, 'rgba(192, 213, 234, 0.35)'],
   [850, 660, 740, 'rgba(228, 211, 183, 0.3)'],
-  [540, 100, 600, 'rgba(255, 255, 255, 0.72)']
+  [540, 100, 600, 'rgba(245, 242, 234, 0.72)']
 ]) {
   const gradient = backgroundContext.createRadialGradient(x, y, 0, x, y, radius);
   gradient.addColorStop(0, color);
-  gradient.addColorStop(1, 'rgba(244, 241, 235, 0)');
+  gradient.addColorStop(1, 'rgba(245, 242, 234, 0)');
   backgroundContext.fillStyle = gradient;
   backgroundContext.fillRect(0, 0, 1024, 1024);
 }
