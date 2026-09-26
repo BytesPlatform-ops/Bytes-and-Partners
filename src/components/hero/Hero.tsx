@@ -3,13 +3,9 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 
-import { createFloatingCards, type FloatingCards } from "@/lib/hero/floatingCards";
-
 import HeroNav from "./HeroNav";
-import HeroInk from "./HeroInk";
 import HeroTypography from "./HeroTypography";
 
-import { createInkTrail, type InkTrail } from "@/lib/hero/inkTrail";
 import { prefersReducedMotion, isCoarsePointer, fontsReady } from "@/lib/animation/prefs";
 import { mountScroll } from "@/lib/animation/scroll";
 
@@ -23,103 +19,13 @@ export default function Hero() {
     const q = <T extends Element>(s: string) => el.querySelector<T>(s);
 
     const hero = q<HTMLElement>("[data-hero]");
-    const contentCanvas = q<HTMLCanvasElement>("[data-ink]");
     const word = q<HTMLElement>("[data-word]");
     const period = q<HTMLElement>("[data-period]");
-    const footer = q<HTMLElement>("[data-hero-foot]");
     if (!hero || !word) return;
 
     const reduced = prefersReducedMotion();
     const coarse = isCoarsePointer();
-    const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2);
-
-    let trail: InkTrail | null = null;
-    let cards: FloatingCards | null = null;
-    const cardLoading = new AbortController();
-    /** last pointer position in client px */
-    const pointer = { cx: 0, cy: 0, has: false };
     let releaseScroll: (() => void) | null = null;
-    let visible = true;
-
-    // ------------------------------------------------------------ geometry
-    function layout() {
-      const r = hero!.getBoundingClientRect();
-      cards?.resize(r.width, r.height);
-      trail?.resize(r.width, r.height, dpr);
-    }
-
-    // --------------------------------------------------------------- trail
-    // The blob reveals a live, depth-sorted card scene.
-    async function startTrail() {
-      if (!contentCanvas) return;
-      const loaded = await createFloatingCards(cardLoading.signal);
-      if (!loaded) return;
-      if (cardLoading.signal.aborted) { loaded.destroy(); return; }
-      cards = loaded;
-      trail = createInkTrail(contentCanvas, cards.canvas);
-      if (!trail) { cards.destroy(); cards = null; return; }
-      layout();
-      gsap.ticker.add(trailTick);
-    }
-
-    const onPointerMove = (e: PointerEvent) => {
-      pointer.cx = e.clientX;
-      pointer.cy = e.clientY;
-      pointer.has = true;
-    };
-    window.addEventListener("pointermove", onPointerMove, { passive: true });
-
-    const trailTick = (_t: number, dt: number) => {
-      if (!trail || document.hidden || !visible) return;
-      const r = hero.getBoundingClientRect();
-      const x = pointer.has ? (pointer.cx - r.left) / r.width : 0.5;
-      const y = pointer.has ? 1 - (pointer.cy - r.top) / r.height : 0.5;
-      trail.setMouse(x, y);
-      const delta = Math.min(dt, 50) / 1000;
-      cards?.render(delta, x, y);
-      trail.render(delta);
-      // Show the canvas once its first frame is ready
-      if (contentCanvas!.style.visibility) {
-        contentCanvas!.style.visibility = "";
-      }
-    };
-
-    // -------------------------------------------------------------- scroll
-    // the word is carried up and the footer lifts away. The header is fixed
-    // and never moves (HeroNav).
-    const scrollTick = () => {
-      const vh = window.innerHeight || 1;
-      const p = Math.min(1, Math.max(0, window.scrollY / vh));
-      const e = p * p * (3 - 2 * p);
-
-      word.style.transform = `translate3d(0,${-vh * 0.4 * e}px,0)`;
-      word.style.opacity = `${1 - Math.max(0, (p - 0.5) / 0.5)}`;
-      if (footer) {
-        const o = Math.max(0, 1 - p * 2.4);
-        footer.style.transform = `translate3d(0,${50 * e}px,0)`;
-        footer.style.opacity = `${o}`;
-        footer.style.pointerEvents = o < 0.05 ? "none" : "";
-      }
-    };
-
-    // --------------------------------------------------------------- input
-    let resizeRaf = 0;
-    const onResize = () => {
-      if (resizeRaf) return;
-      resizeRaf = requestAnimationFrame(() => {
-        resizeRaf = 0;
-        layout();
-      });
-    };
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        visible = entries[0]?.isIntersecting ?? true;
-      },
-      { rootMargin: "80px" },
-    );
-    io.observe(hero);
-    window.addEventListener("resize", onResize, { passive: true });
 
     // ----------------------------------------------------------- the period
     let periodTl: gsap.core.Timeline | null = null;
@@ -209,8 +115,6 @@ export default function Hero() {
     }
 
     releaseScroll = mountScroll({ smooth: !coarse });
-    gsap.ticker.add(scrollTick);
-    void startTrail();
     // wait for the webfont so the letters condense into their final shapes
     fontsReady(900).then(() => {
       if (!cancelled) runMorph();
@@ -218,24 +122,13 @@ export default function Hero() {
 
     function cleanup() {
       cancelled = true;
-      cardLoading.abort();
       morphTl?.kill();
       // never leave the word blurred or filtered behind a killed timeline
       finishMorph?.();
       periodTl?.kill();
-      gsap.ticker.remove(scrollTick);
-      gsap.ticker.remove(trailTick);
-      io.disconnect();
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("pointermove", onPointerMove);
       period?.removeEventListener("pointerenter", onPeriodEnter);
       period?.removeEventListener("pointerleave", onPeriodLeave);
-      cancelAnimationFrame(resizeRaf);
       releaseScroll?.();
-      trail?.destroy();
-      trail = null;
-      cards?.destroy();
-      cards = null;
     }
 
     return cleanup;
@@ -248,8 +141,6 @@ export default function Hero() {
         id="top"
         className="relative flex h-[100svh] flex-col justify-between overflow-clip"
       >
-        <HeroInk />
-
         <HeroNav />
 
         <div className="relative z-10 flex flex-1 items-end px-[var(--bp-gut)] pb-[8svh]">

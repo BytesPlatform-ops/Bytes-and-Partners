@@ -1,13 +1,11 @@
 /**
- * The Three.js side of the fluid video transition: one renderer, one plane,
+ * The fluid video pass uses the parent-owned renderer, one plane,
  * one VideoTexture. It knows nothing about scroll or GSAP — the component
  * hands it a progress value and it draws that state.
  *
- * Resolution: the canvas covers the section's sticky stage, which is always
- * exactly the viewport. Its drawing buffer is sized to the stage's CSS size ×
- * a capped devicePixelRatio, and re-sized whenever the stage changes, so it is
- * never a small buffer stretched by CSS. The sheet GROWS inside that
- * full-resolution canvas; the canvas itself never scales.
+ * Layout is supplied in shared viewport coordinates. The parent alone sizes
+ * the drawing buffer and clears/composites the frame; this pass only draws
+ * its sheet and owns the video texture, geometry and material.
  */
 
 import * as THREE from "three";
@@ -30,7 +28,6 @@ export type FluidVideoRenderer = {
 
 export type FluidVideoOptions = {
   video: HTMLVideoElement;
-  maxDpr: number;
   segments: [number, number];
   radius: [number, number];
   strength: number;
@@ -40,17 +37,9 @@ export type FluidVideoOptions = {
 };
 
 export function createFluidVideoRenderer(
-  canvas: HTMLCanvasElement,
+  renderer: THREE.WebGLRenderer,
   opts: FluidVideoOptions,
 ): FluidVideoRenderer | null {
-  let renderer: THREE.WebGLRenderer;
-  try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  } catch {
-    return null;
-  }
-  renderer.setClearColor(0x000000, 0);
-
   const texture = new THREE.VideoTexture(opts.video);
   // The shader writes the sampled colour straight out, and the renderer adds
   // no output conversion for a ShaderMaterial — so leaving the texture
@@ -103,14 +92,10 @@ export function createFluidVideoRenderer(
     layout(stage, a, b) {
       from = a;
       to = b;
-      const dpr = Math.min(window.devicePixelRatio || 1, opts.maxDpr);
-      renderer.setPixelRatio(dpr);
-      // false: leave the CSS size alone — the canvas is laid out at 100% of
-      // the stage by its classes; this sets only the drawing buffer
-      renderer.setSize(stage.w, stage.h, false);
+      const dpr = renderer.getPixelRatio();
       uniforms.uCanvas.value.set(stage.w, stage.h);
       stats.css = [stage.w, stage.h];
-      stats.buffer = [canvas.width, canvas.height];
+      stats.buffer = [renderer.domElement.width, renderer.domElement.height];
       stats.dpr = dpr;
     },
 
@@ -140,7 +125,6 @@ export function createFluidVideoRenderer(
       geometry.dispose();
       material.dispose();
       texture.dispose();
-      renderer.dispose();
     },
   };
 

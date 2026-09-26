@@ -2,8 +2,10 @@ import * as THREE from "three";
 
 /** The supplied fluid solver, embedded as a transparent hero reveal mask. */
 export type InkTrail = {
+  readonly texture: THREE.Texture;
   setMouse(x: number, y: number): void;
   resize(width: number, height: number, dpr: number): void;
+  setHeroRegion(top: number, height: number, viewportHeight: number): void;
   render(dt: number): void;
   destroy(): void;
 };
@@ -417,16 +419,8 @@ void main() {
         );
 }`;
 
-export function createInkTrail(canvas: HTMLCanvasElement, content: HTMLCanvasElement): InkTrail | null {
-  let renderer: THREE.WebGLRenderer;
-  try {
-    renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, powerPreference: "high-performance" });
-  } catch { return null; }
-  if (!renderer.extensions.has("EXT_color_buffer_float")) {
-    renderer.dispose();
-    return null;
-  }
-  renderer.setClearColor(0, 0);
+export function createInkTrail(renderer: THREE.WebGLRenderer, content: HTMLCanvasElement): InkTrail | null {
+  if (!renderer.extensions.has("EXT_color_buffer_float")) return null;
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const geometry = new THREE.PlaneGeometry(2, 2);
@@ -456,6 +450,7 @@ export function createInkTrail(canvas: HTMLCanvasElement, content: HTMLCanvasEle
     materials.push(result);
     return result;
   }
+  const output = target(2);
   const velocity = doubleTarget(SIM_SIZE);
   const dye = doubleTarget(DYE_SIZE);
   const pressure = doubleTarget(SIM_SIZE);
@@ -487,12 +482,14 @@ export function createInkTrail(canvas: HTMLCanvasElement, content: HTMLCanvasEle
     varying vec2 vUv;
     uniform sampler2D uDye;
     uniform sampler2D uContent;
+    uniform vec2 uHeroRegion;
     void main() {
       float ink = smoothstep(0.085, 0.095, texture2D(uDye, vUv).r);
-      vec3 color = texture2D(uContent, vUv).rgb;
+      vec2 heroUv = vec2(vUv.x, 1.0 - ((1.0 - vUv.y) - uHeroRegion.x) / uHeroRegion.y);
+      vec3 color = texture2D(uContent, clamp(heroUv, 0.0, 1.0)).rgb;
       gl_FragColor = vec4(color * ink, ink);
     }
-  `, { uDye: texture(), uContent: { value: contentTexture } });
+  `, { uDye: texture(), uContent: { value: contentTexture }, uHeroRegion: { value: new THREE.Vector2(0, 1) } });
   function renderPass(material: THREE.ShaderMaterial, target: THREE.WebGLRenderTarget | null = null) {
     quad.material = material;
     renderer.setRenderTarget(target);
@@ -677,6 +674,10 @@ function simulate(dt: number) {
   let accumulator = 0;
   let disposed = false;
   return {
+    texture: output.texture,
+    setHeroRegion(top, height, viewportHeight) {
+      displayMaterial.uniforms.uHeroRegion.value.set(top / viewportHeight, height / viewportHeight);
+    },
     setMouse(x, y) {
       if (x < 0 || x > 1 || y < 0 || y > 1) {
         pointer.initialized = false;
@@ -699,8 +700,7 @@ function simulate(dt: number) {
     },
     resize(width, height, dpr) {
       if (disposed || width < 2 || height < 2) return;
-      renderer.setPixelRatio(Math.min(dpr, 2));
-      renderer.setSize(width, height, false);
+      output.setSize(Math.round(width * Math.min(dpr, 2)), Math.round(height * Math.min(dpr, 2)));
       splatMaterial.uniforms.uAspect.value = width / height;
       pointer.initialized = false;
     },
@@ -715,7 +715,7 @@ function simulate(dt: number) {
       }
       contentTexture.needsUpdate = true;
       displayMaterial.uniforms.uDye.value = dye.read.texture;
-      renderPass(displayMaterial);
+      renderPass(displayMaterial, output);
     },
     destroy() {
       disposed = true;
@@ -723,7 +723,6 @@ function simulate(dt: number) {
       materials.forEach(material => material.dispose());
       geometry.dispose();
       contentTexture.dispose();
-      renderer.dispose();
     },
   };
 }
