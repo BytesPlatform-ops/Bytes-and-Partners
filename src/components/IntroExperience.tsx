@@ -8,7 +8,8 @@ import FluidVideoTransition from "./sections/FluidVideoTransition";
 import { createFloatingCards, type FloatingCards } from "@/lib/hero/floatingCards";
 import { createInkTrail, type InkTrail } from "@/lib/hero/inkTrail";
 import { createFluidVideoRenderer } from "@/lib/fluid/createFluidVideoRenderer";
-import { createAutoScrollScene } from "@/lib/fluid/autoScrollScene";
+import { createAutoScrollScene, travelFraction } from "@/lib/fluid/autoScrollScene";
+import { createDiveScene } from "@/lib/fluid/diveScene";
 import { createPearlTrail } from "@/lib/intro/pearlTrail";
 import { createOrbitalLines } from "@/lib/intro/orbitalLines";
 import { isCoarsePointer, prefersReducedMotion } from "@/lib/animation/prefs";
@@ -33,6 +34,8 @@ export default function IntroExperience() {
     const start = container.querySelector<HTMLElement>("[data-media-start]")!;
     const end = container.querySelector<HTMLElement>("[data-media-end]")!;
     const video = container.querySelector<HTMLVideoElement>("[data-fluid-video]")!;
+    const reel = container.querySelector<HTMLElement>("[data-reel-overlay]");
+    let reelShown = -1;
     const reduced = prefersReducedMotion();
     const coarse = isCoarsePointer();
     const loading = new AbortController();
@@ -102,6 +105,30 @@ export default function IntroExperience() {
     timeline.to(state, { progress: 1, duration: tune.duration, ease: "sine.inOut" }, 0);
     const sceneScroll = reduced ? null : createAutoScrollScene(studio, timeline);
 
+    // While the dive rotates/scales the section, bounding rects are warped;
+    // render from the layout measured just before it started.
+    type Layout = { bounds: DOMRect; stage: DOMRect; heroRect: DOMRect; studioRect: DOMRect; startRect: DOMRect; endRect: DOMRect };
+    const measureLayout = (): Layout => ({
+      bounds: container.getBoundingClientRect(), stage: canvas.getBoundingClientRect(),
+      heroRect: hero.getBoundingClientRect(), studioRect: studio.getBoundingClientRect(),
+      startRect: start.getBoundingClientRect(), endRect: end.getBoundingClientRect(),
+    });
+    let frozen: Layout | null = null;
+    const pill = studio.querySelector<HTMLElement>(".reel-button");
+    const overlay = container.querySelector<HTMLElement>("[data-dive-overlay]");
+    const next = document.querySelector<HTMLElement>("[data-featured-work]");
+    const dive = reduced || !pill || !overlay || !next ? null : createDiveScene({
+      section: studio,
+      layers: [canvas.parentElement!, studio],
+      pill, overlay, next,
+      nextContent: () => next.querySelector<HTMLElement>("[data-work-canvas]"),
+      startOffset: () => window.innerHeight * travelFraction(studio),
+      ready: () => timeline.progress() === 1 && !timeline.isActive(),
+      freeze: () => { frozen = measureLayout(); },
+      thaw: () => { frozen = null; },
+      suspendOthers: value => sceneScroll?.suspend(value),
+    });
+
     const measure = () => { needsResize = true; };
     const observer = new ResizeObserver(measure);
     observer.observe(hero);
@@ -119,10 +146,7 @@ export default function IntroExperience() {
 
     const tick = (_time: number, elapsed: number) => {
       if (disposed || document.hidden) return;
-      const bounds = container.getBoundingClientRect();
-      const stage = canvas.getBoundingClientRect();
-      const heroRect = hero.getBoundingClientRect();
-      const studioRect = studio.getBoundingClientRect();
+      const { bounds, stage, heroRect, studioRect, startRect, endRect } = frozen ?? measureLayout();
       if (needsResize) {
         needsResize = false;
         width = Math.max(1, stage.width);
@@ -167,18 +191,23 @@ export default function IntroExperience() {
       renderer.clear();
       renderer.autoClear = false;
       const scroll = Math.max(0, -bounds.top);
-      // Finish drawing across the hero, just before the studio video trigger.
-      const lineProgress = Math.min(1, scroll / Math.max(1, heroHeight * 0.92));
+      // Nothing at the top; the one continuous path draws itself from its start
+      // as the page scrolls through sections 1 → 2, tip always in view.
+      const lineProgress = lines.progressAtScroll(scroll);
       lines.render(renderer, stage.top - bounds.top, reduced ? 1 : lineProgress);
       if (fluid && inStudio && video.readyState >= 2 && !reduced) {
-        const rect = (element: HTMLElement) => {
-          const r = element.getBoundingClientRect();
-          return { x: r.left - stage.left, y: r.top - stage.top, w: r.width, h: r.height };
-        };
-        fluid.layout({ w: width, h: height }, rect(start), rect(end));
+        const rect = (r: DOMRect) => ({ x: r.left - stage.left, y: r.top - stage.top, w: r.width, h: r.height });
+        fluid.layout({ w: width, h: height }, rect(startRect), rect(endRect));
         fluid.debugMode = Number(studio.dataset.debugMode || 0);
         fluid.render(state.progress);
         video.style.opacity = "0";
+      }
+      // Fade the reel title in as the video settles into its final frame.
+      const reelOpacity = reduced ? 0 : Math.round(Math.min(1, Math.max(0, (state.progress - 0.7) / 0.3)) * 100) / 100;
+      if (reel && reelOpacity !== reelShown) {
+        reelShown = reelOpacity;
+        reel.style.opacity = String(reelOpacity);
+        reel.style.visibility = reelOpacity > 0 ? "visible" : "hidden";
       }
       renderer.setRenderTarget(null);
       renderer.clear();
@@ -203,6 +232,7 @@ export default function IntroExperience() {
       disposed = true;
       loading.abort();
       gsap.ticker.remove(tick);
+      dive?.kill();
       sceneScroll?.kill();
       timeline.kill();
       observer.disconnect();
@@ -231,6 +261,8 @@ export default function IntroExperience() {
       </div>
       <Hero />
       <FluidVideoTransition />
+      {/* The pill's blue, held full-screen while the dive swaps sections. */}
+      <div data-dive-overlay aria-hidden className="pointer-events-none invisible fixed inset-0 z-40 bg-blue opacity-0" />
       {ENABLE_LINE_DRAWING_TOOL && <LineDrawingTool root={root} />}
     </div>
   );

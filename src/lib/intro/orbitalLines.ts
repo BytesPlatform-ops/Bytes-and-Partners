@@ -1,7 +1,30 @@
 import * as THREE from "three";
-import { INTRO_LINE_POINTS } from "./lineData";
+import { INTRO_LINE_LAYOUTS, lineBreakpoint, lineSegments } from "./lineData";
 
-/** One persistent, antialiased page-space curve. Its rounded tip follows the reveal. */
+/** Path pixels drawn per pixel scrolled, at least. */
+const REVEAL_MIN_SPEED = 8;
+/** The drawing tip stays above this fraction of the viewport height. */
+const REVEAL_LEAD = 0.95;
+/** The path is complete by this fraction of the hero's height scrolled, just
+ * before section 2 reaches the top and the video morph takes over. */
+const REVEAL_END = 0.99;
+
+/** Scroll offset at which each sample is drawn at a given pace: steady along
+ * the path (loops included) but never ahead of REVEAL_LEAD down the viewport. */
+function revealSchedule(points: THREE.Vector3[], step: number, viewport: number) {
+  const schedule = [0];
+  let deepest = points[0].y;
+  for (let i = 1; i < points.length; i++) {
+    deepest = Math.max(deepest, points[i].y);
+    schedule.push(Math.max(schedule[i - 1] + step, deepest - viewport * REVEAL_LEAD));
+  }
+  return schedule;
+}
+
+/**
+ * One persistent, antialiased page-space curve built from tangent-continuous
+ * cubic Béziers. Its rounded tip follows the reveal along the path.
+ */
 export function createOrbitalLines() {
   const scene = new THREE.Scene();
   const capGeometry = new THREE.CircleGeometry(1, 48);
@@ -17,10 +40,11 @@ export function createOrbitalLines() {
       void main(){vRadius=radius;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
     fragmentShader: `uniform vec3 uColor; varying float vRadius;
       void main(){float aa=max(fwidth(vRadius),0.001);float alpha=1.0-smoothstep(1.0-aa,1.0,vRadius);gl_FragColor=vec4(uColor,alpha);}`,
-    transparent: true, depthTest: false, depthWrite: false,
+    // The y-down camera flips winding; without DoubleSide the caps are culled.
+    transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide,
   });
   const camera = new THREE.OrthographicCamera(0, 1, 0, 1, -10, 10);
-  const lines = [12].map((linewidth) => {
+  const lines = [18].map((linewidth) => {
     const geometry = new THREE.BufferGeometry();
     const rgb = [36, 87, 255];
     const halfWidth = linewidth / 2;
@@ -37,25 +61,59 @@ export function createOrbitalLines() {
     scene.add(line);
     const startCap = new THREE.Mesh(capGeometry, capMaterial);
     const endCap = new THREE.Mesh(capGeometry, capMaterial);
-    startCap.scale.setScalar(halfWidth);
-    endCap.scale.setScalar(halfWidth);
     startCap.visible = false;
     endCap.visible = false;
     scene.add(startCap, endCap);
-    return { line, geometry, material, halfWidth, count: 0, points: [] as THREE.Vector3[], startCap, endCap };
+    return { line, geometry, material, linewidth, halfWidth, count: 0, points: [] as THREE.Vector3[], schedule: [] as number[], startCap, endCap };
   });
 
   return {
+    /** Fraction of the path drawn at this scroll offset into the intro. */
+    progressAtScroll(scroll: number) {
+      const { schedule, count } = lines[0];
+      if (!count || scroll <= 0) return 0;
+      let lo = 0;
+      let hi = schedule.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (schedule[mid] <= scroll) lo = mid; else hi = mid - 1;
+      }
+      return lo / count;
+    },
     resize(w: number, h: number, heroHeight: number, studioHeight: number) {
       camera.right = w;
       camera.bottom = h;
       camera.updateProjectionMatrix();
       lines.forEach((entry) => {
         const totalHeight = heroHeight + studioHeight;
-        const controlPoints = INTRO_LINE_POINTS.map(([x, y]) => new THREE.Vector3(x * w, y * totalHeight, 0));
-        const curve = new THREE.CatmullRomCurve3(controlPoints, false, "centripetal", 0.35);
-        const points = curve.getSpacedPoints(1024);
+        // Viewport width, like the CSS breakpoints that lay out the content.
+        const breakpoint = lineBreakpoint(window.innerWidth);
+        const curve = new THREE.CurvePath<THREE.Vector3>();
+        for (const segment of lineSegments(INTRO_LINE_LAYOUTS[breakpoint])) {
+          const [a, b, c, d] = segment.map(([x, y]) => new THREE.Vector3(x * w, y * totalHeight, 0));
+          curve.add(new THREE.CubicBezierCurve3(a, b, c, d));
+        }
+        entry.halfWidth = (breakpoint === "mobile" ? entry.linewidth * 0.8 : entry.linewidth) / 2;
+        entry.startCap.scale.setScalar(entry.halfWidth);
+        entry.endCap.scale.setScalar(entry.halfWidth);
+        // Arc-length spacing of ~2px keeps the strip smooth on the widest turns.
+        const points = curve.getSpacedPoints(Math.max(512, Math.ceil(curve.getLength() / 2)));
         entry.points = points;
+        // Find the slowest pace (never under REVEAL_MIN_SPEED) that still
+        // finishes by REVEAL_END of the hero, so the loops draw as calmly as
+        // the deadline allows and the line is complete before the morph.
+        const spacing = curve.getLength() / (points.length - 1);
+        const finish = heroHeight * REVEAL_END;
+        let slow = REVEAL_MIN_SPEED;
+        let fast = 200;
+        if (revealSchedule(points, spacing / slow, h).at(-1)! > finish) {
+          for (let i = 0; i < 24; i++) {
+            const mid = (slow + fast) / 2;
+            if (revealSchedule(points, spacing / mid, h).at(-1)! > finish) slow = mid; else fast = mid;
+          }
+          slow = fast;
+        }
+        entry.schedule = revealSchedule(points, spacing / slow, h);
         // A single joined triangle strip avoids overlapping segment caps and
         // their dark/dotted seams when thick lines use transparency.
         const positions: number[] = [];
