@@ -1,25 +1,48 @@
 import * as THREE from "three";
+import { INTRO_LINE_POINTS } from "./lineData";
 
-/** Persistent page-space ribbons. Only their revealed length changes on scroll. */
+/** One persistent, antialiased page-space curve. Its rounded tip follows the reveal. */
 export function createOrbitalLines() {
   const scene = new THREE.Scene();
+  const capGeometry = new THREE.CircleGeometry(1, 48);
+  const capRadii = new Float32Array(capGeometry.attributes.position.count);
+  for (let i = 0; i < capRadii.length; i++) {
+    const p = capGeometry.attributes.position;
+    capRadii[i] = Math.min(1, Math.hypot(p.getX(i), p.getY(i)));
+  }
+  capGeometry.setAttribute("radius", new THREE.BufferAttribute(capRadii, 1));
+  const capMaterial = new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Vector3(36 / 255, 87 / 255, 1) } },
+    vertexShader: `attribute float radius; varying float vRadius;
+      void main(){vRadius=radius;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+    fragmentShader: `uniform vec3 uColor; varying float vRadius;
+      void main(){float aa=max(fwidth(vRadius),0.001);float alpha=1.0-smoothstep(1.0-aa,1.0,vRadius);gl_FragColor=vec4(uColor,alpha);}`,
+    transparent: true, depthTest: false, depthWrite: false,
+  });
   const camera = new THREE.OrthographicCamera(0, 1, 0, 1, -10, 10);
-  const lines = [3.8, 3, 2.6].map((linewidth, i) => {
+  const lines = [12].map((linewidth) => {
     const geometry = new THREE.BufferGeometry();
-    const rgb = [[36, 87, 255], [105, 138, 255], [156, 173, 240]][i];
-    const halfWidth = linewidth / 2 + 1;
+    const rgb = [36, 87, 255];
+    const halfWidth = linewidth / 2;
     const material = new THREE.ShaderMaterial({
       uniforms: { uColor: { value: new THREE.Vector3(...rgb.map(c => c / 255)) }, uHalfWidth: { value: halfWidth } },
       vertexShader: `attribute float side; varying float vSide;
         void main() { vSide=side; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-      fragmentShader: `uniform vec3 uColor; uniform float uHalfWidth; varying float vSide;
-        void main() { float alpha=clamp((1.0-abs(vSide))*uHalfWidth,0.0,1.0); gl_FragColor=vec4(uColor,alpha); }`,
+      fragmentShader: `uniform vec3 uColor; varying float vSide;
+        void main(){float aa=max(fwidth(vSide),0.001);float alpha=1.0-smoothstep(1.0-aa,1.0,abs(vSide));gl_FragColor=vec4(uColor,alpha);}`,
       transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide,
     });
     const line = new THREE.Mesh(geometry, material);
     line.frustumCulled = false;
     scene.add(line);
-    return { line, geometry, material, halfWidth, count: 0 };
+    const startCap = new THREE.Mesh(capGeometry, capMaterial);
+    const endCap = new THREE.Mesh(capGeometry, capMaterial);
+    startCap.scale.setScalar(halfWidth);
+    endCap.scale.setScalar(halfWidth);
+    startCap.visible = false;
+    endCap.visible = false;
+    scene.add(startCap, endCap);
+    return { line, geometry, material, halfWidth, count: 0, points: [] as THREE.Vector3[], startCap, endCap };
   });
 
   return {
@@ -27,33 +50,12 @@ export function createOrbitalLines() {
       camera.right = w;
       camera.bottom = h;
       camera.updateProjectionMatrix();
-      // Preserve the original section-2 SVG's xMaxYMax slice mapping.
-      const scale = Math.max(w / 1600, studioHeight / 1000);
-      const sx = w - 1600 * scale;
-      const sy = heroHeight + studioHeight - 1000 * scale;
-      const point = (x: number, y: number) => new THREE.Vector3(sx + x * scale, sy + y * scale, 0);
-      lines.forEach((entry, index) => {
-        const radius = [760, 520, 620][index];
-        const cx = index === 2 ? 160 : 1340;
-        const cy = index === 2 ? -260 : 1120;
-        const startAngle = index === 2 ? 0.1 : Math.PI;
-        const endAngle = index === 2 ? Math.PI * 0.92 : Math.PI + (index === 0 ? 0.847 : 0.48);
-        const join = point(cx + Math.cos(startAngle) * radius, cy + Math.sin(startAngle) * radius);
-        const start = new THREE.Vector3(w * (0.72 - index * 0.22), heroHeight * (0.1 + index * 0.08), 0);
-        const boundary = new THREE.Vector3(w * (0.25 + index * 0.24), heroHeight * 0.95, 0);
-        const path = new THREE.CurvePath<THREE.Vector3>();
-        path.add(new THREE.CubicBezierCurve3(start,
-          new THREE.Vector3(w * (1.1 - index * 0.3), heroHeight * 0.36, 0),
-          new THREE.Vector3(w * (-0.15 + index * 0.3), heroHeight * 0.5, 0), boundary));
-        path.add(new THREE.CubicBezierCurve3(boundary,
-          new THREE.Vector3(boundary.x + w * 0.22, heroHeight * 1.2, 0),
-          new THREE.Vector3(join.x, join.y - studioHeight * 0.35, 0), join));
-        const points = path.getSpacedPoints(320);
-        // Finish on the original section-2 arcs, including the blue endpoint.
-        for (let i = 1; i <= 160; i++) {
-          const angle = startAngle + (endAngle - startAngle) * i / 160;
-          points.push(point(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius));
-        }
+      lines.forEach((entry) => {
+        const totalHeight = heroHeight + studioHeight;
+        const controlPoints = INTRO_LINE_POINTS.map(([x, y]) => new THREE.Vector3(x * w, y * totalHeight, 0));
+        const curve = new THREE.CatmullRomCurve3(controlPoints, false, "centripetal", 0.35);
+        const points = curve.getSpacedPoints(1024);
+        entry.points = points;
         // A single joined triangle strip avoids overlapping segment caps and
         // their dark/dotted seams when thick lines use transparency.
         const positions: number[] = [];
@@ -84,11 +86,19 @@ export function createOrbitalLines() {
         const count = Math.floor(entry.count * THREE.MathUtils.clamp(progress, 0, 1));
         entry.geometry.setDrawRange(0, count * 6);
         entry.line.visible = count > 0;
+        entry.startCap.visible = count > 0;
+        entry.endCap.visible = count > 0;
+        if (count > 0) {
+          entry.startCap.position.copy(entry.points[0]);
+          entry.endCap.position.copy(entry.points[count]);
+        }
       }
       renderer.render(scene, camera);
     },
     dispose() {
       for (const entry of lines) { entry.geometry.dispose(); entry.material.dispose(); }
+      capGeometry.dispose();
+      capMaterial.dispose();
     },
   };
 }

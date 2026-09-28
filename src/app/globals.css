@@ -220,16 +220,6 @@
   }
 }
 
-/* The reel section's statement retires as the panel grows over it. The
-   timeline tweens --fade 0 → 1 on the section; only at lg and up, where the
-   panel and the statement share the row. */
-@media (min-width: 1024px) {
-  [data-fluid-copy] {
-    opacity: clamp(0, calc(1 - var(--fade, 0) * 2.2), 1);
-    translate: 0 calc(var(--fade, 0) * -32px);
-  }
-}
-
 @keyframes hero-morph-failsafe {
   to { opacity: 1; }
 }

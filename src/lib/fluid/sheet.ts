@@ -30,9 +30,14 @@ export function cornersAt(from: Rect, to: Rect, t: number): V2[] {
   const a = cornersOf(from);
   const b = cornersOf(to);
   const span = 1 - Math.max(...CORNER_DELAY);
+  // Translate the sheet as a whole. Delaying its travel per corner can
+  // collapse/invert the surface when the destination is below the card.
+  const top = from.y + (to.y - from.y) * easeInOut(clamp01(t));
   return a.map(([x0, y0], i) => {
     const e = easeInOut(clamp01((t - CORNER_DELAY[i]) / span));
-    return [x0 + (b[i][0] - x0) * e, y0 + (b[i][1] - y0) * e];
+    const localY = y0 - from.y;
+    const targetY = b[i][1] - to.y;
+    return [x0 + (b[i][0] - x0) * e, top + localY + (targetY - localY) * e];
   });
 }
 

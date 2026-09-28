@@ -156,12 +156,7 @@ export default function Hero() {
             <span className="mx-2 opacity-40">/</span>
             New York
           </p>
-          <span className="hero-meta flex items-center gap-2.5">
-            Scroll
-            <span className="hero-rule" aria-hidden>
-              <span />
-            </span>
-          </span>
+
         </div>
       </div>
     </div>

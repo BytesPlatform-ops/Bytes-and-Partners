@@ -2,33 +2,6 @@
 
 import { useEffect, useState } from "react";
 const VIDEO_SRC = "/video/reel-1080.mp4";
-/**
- * Layout lives in the DOM, on a 12-column grid. The media's start and end
- * boxes are measured, never drawn: the sheet travels from one to the other.
- *
- *   desktop  card: columns 1–7, 19:10 — a large, horizontal editorial card
- *            → panel: the full content width, down to one gutter above the
- *            section's bottom edge — a large, wide cinematic panel (≈2.1:1
- *            at 1920×1080), never full-viewport.
- *   below lg card: full width, 16:10 → panel: full width, 4:3 — stacked
- *            under the text, so the video stays dominant on tablet too.
- *
- * The boxes share a cell, so every item names its column: auto-placement
- * would push the second into an implicit, zero-width column.
- */
-const START_BOX =
-  "col-start-1 row-start-2 w-full aspect-[16/10] lg:row-start-1 lg:col-start-1 lg:col-span-7 lg:aspect-[19/10]";
-const END_CELL = "col-start-1 row-start-2 lg:row-start-1 lg:col-start-1 lg:col-span-12";
-const END_BOX =
-  "w-full aspect-[4/3] lg:aspect-auto lg:h-[calc(100svh-max(15svh,5.5rem)-var(--bp-gut))]";
-
-const CAPABILITIES: Array<[string, string]> = [
-  ["AI products & agents", "Assistants and agents wired into your data and tools, running in production."],
-  ["Custom software", "Internal platforms, portals and back-office systems shaped around how you operate."],
-  ["Web & mobile apps", "Customer-facing products for web, iOS and Android."],
-  ["Automation & CRM", "CRM builds, pipelines and the integrations between your systems."],
-];
-
 const DEBUG_MODES = ["normal", "undistorted", "distortion map"] as const;
 
 /** DOM layout only; IntroExperience owns the shared visual system. */
@@ -41,71 +14,30 @@ export default function FluidVideoTransition() {
   return (
     <section
       data-fluid-transition
-      aria-labelledby="studio-heading"
-      className="relative h-[100svh] overflow-hidden"
+      aria-label="Our approach"
+      className="relative h-[153svh] overflow-hidden lg:h-[140svh] motion-reduce:h-auto motion-reduce:min-h-[100svh]"
     >
-      <div className="relative grid h-full grid-cols-1 content-start gap-y-8 px-[var(--bp-gut)] pt-[max(15svh,5.5rem)] lg:grid-cols-12 lg:gap-x-6">
-        {/* ---- the media: the card as plain HTML until (or unless) WebGL
-                 takes over; its box is also where the sheet starts */}
-        <div data-media-start className={`relative self-start ${START_BOX}`}>
-          <video
-            data-fluid-video
-            src={VIDEO_SRC}
-            muted
-            loop
-            playsInline
-            preload="auto"
-            aria-hidden
-            className="absolute inset-0 h-full w-full rounded-[14px] object-cover object-center"
-          />
-        </div>
-        {/* measured, never drawn: where the sheet ends */}
-        <div aria-hidden className={`pointer-events-none self-start ${END_CELL}`}>
-          <div data-media-end className={END_BOX} />
-        </div>
-
-        {/* ---- the editorial column: retires as the panel grows over it
-                 (desktop). Type, rules and space only. */}
-        <div data-fluid-copy className="col-start-1 row-start-1 self-start lg:col-start-9 lg:col-span-4">
-          <p className="hero-meta">
-            <span className="text-blue">01</span> <span className="mx-2 opacity-40">—</span> Studio
-          </p>
-          <h2
-            id="studio-heading"
-            className="mt-5 max-w-[22ch] text-[clamp(1.375rem,2.1vw,2rem)] font-medium leading-[1.12] tracking-[-0.025em] text-ink text-pretty"
-          >
-            We design and engineer the software companies run on —
-            products, AI agents and the systems underneath.
+      <div className="relative h-full px-[var(--bp-gut)] motion-reduce:flex motion-reduce:flex-col motion-reduce:gap-10 motion-reduce:py-24">
+        <div data-fluid-copy className="absolute left-[var(--bp-gut)] right-[var(--bp-gut)] top-[10svh] lg:left-[52%] lg:top-[11svh] lg:max-w-[43rem] motion-reduce:static motion-reduce:order-first ml-10">
+          <h2 className="max-w-[12ch] text-[clamp(2.65rem,4.15vw,4.75rem)] font-medium leading-[0.98] tracking-[-0.055em] text-ink">
+            The whole thing.<br /><span className="text-blue">Built together.</span>
           </h2>
-          <p className="mt-4 max-w-[38ch] text-[0.9375rem] leading-[1.5] tracking-[-0.01em] text-ink-mute text-pretty">
-            One team from first sketch to production code. We stay on after
-            launch to run, measure and improve what we ship.
+          <p className="mt-6 max-w-[39ch] text-[clamp(1rem,1.2vw,1.2rem)] leading-[1.5] tracking-[-0.015em] text-ink-mute">
+            From the first screen to the last API call. Design, code, and the
+            details between them — by the people you meet.
           </p>
-
-          <div className="mt-10 hidden lg:block">
-            <p className="hero-meta pb-3">Capabilities</p>
-            <ol className="border-b border-[var(--bp-hairline)]">
-              {CAPABILITIES.map(([name, what], i) => (
-                <li
-                  key={name}
-                  className="group grid grid-cols-[2.25rem_1fr] border-t border-[var(--bp-hairline)] py-3.5 transition-colors duration-500 hover:border-blue/40"
-                >
-                  <span className="pt-px font-mono text-[0.6875rem] tabular-nums text-ink-mute transition-colors duration-500 group-hover:text-blue">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <span className="transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover:translate-x-1">
-                    <span className="block text-[0.75rem] font-medium uppercase leading-none tracking-[0.06em] text-ink">
-                      {name}
-                    </span>
-                    <span className="mt-1.5 block max-w-[40ch] text-[0.8125rem] leading-[1.4] text-ink-mute/80 transition-colors duration-500 group-hover:text-ink-mute">
-                      {what}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
+          <a href="#work" className="group mt-8 inline-flex min-h-14 items-center gap-9 rounded-full bg-blue py-2 pl-7 pr-2 text-sm font-medium text-paper shadow-[0_12px_30px_rgba(36,87,255,0.18)] transition-[background-color,transform] duration-300 hover:-translate-y-0.5 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue">
+            Our approach
+            <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-paper text-blue transition-transform duration-300 group-hover:translate-x-0.5 motion-reduce:transition-none">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>
+            </span>
+          </a>
         </div>
+        <div data-media-start className="absolute left-[var(--bp-gut)] top-[max(68svh,34rem)] aspect-video w-[calc(100%-2*var(--bp-gut))] lg:top-[38svh] lg:w-[48%] motion-reduce:relative motion-reduce:left-auto motion-reduce:top-auto motion-reduce:w-full lg:motion-reduce:top-auto lg:motion-reduce:w-full">
+          <video data-fluid-video src={VIDEO_SRC} muted loop playsInline preload="auto" aria-hidden
+            className="absolute inset-0 h-full w-full rounded-[14px] object-cover object-center" />
+        </div>
+        <div data-media-end aria-hidden className="pointer-events-none absolute left-[var(--bp-gut)] right-[var(--bp-gut)] top-[86svh] h-[58svh] lg:top-[72svh] lg:h-[61svh]" />
       </div>
 
       {debug && (

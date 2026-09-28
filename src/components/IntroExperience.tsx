@@ -8,10 +8,12 @@ import FluidVideoTransition from "./sections/FluidVideoTransition";
 import { createFloatingCards, type FloatingCards } from "@/lib/hero/floatingCards";
 import { createInkTrail, type InkTrail } from "@/lib/hero/inkTrail";
 import { createFluidVideoRenderer } from "@/lib/fluid/createFluidVideoRenderer";
-import { createPinnedScene } from "@/lib/fluid/pinnedScene";
-import { createTextLiquid } from "@/lib/intro/textLiquid";
+import { createAutoScrollScene } from "@/lib/fluid/autoScrollScene";
+import { createPearlTrail } from "@/lib/intro/pearlTrail";
 import { createOrbitalLines } from "@/lib/intro/orbitalLines";
 import { isCoarsePointer, prefersReducedMotion } from "@/lib/animation/prefs";
+import LineDrawingTool from "./dev/LineDrawingTool";
+import { ENABLE_LINE_DRAWING_TOOL } from "@/lib/intro/lineData";
 
 const responsive = (width: number) => width < 768
   ? { strength: 0.6, duration: 1.3 }
@@ -31,8 +33,6 @@ export default function IntroExperience() {
     const start = container.querySelector<HTMLElement>("[data-media-start]")!;
     const end = container.querySelector<HTMLElement>("[data-media-end]")!;
     const video = container.querySelector<HTMLVideoElement>("[data-fluid-video]")!;
-    const word = container.querySelector<HTMLElement>("[data-word]")!;
-    const footer = container.querySelector<HTMLElement>("[data-hero-foot]")!;
     const reduced = prefersReducedMotion();
     const coarse = isCoarsePointer();
     const loading = new AbortController();
@@ -40,7 +40,6 @@ export default function IntroExperience() {
     try {
       renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: "high-performance" });
     } catch { return; }
-    const textLiquid = createTextLiquid(container.querySelector<HTMLElement>("[data-fluid-copy]")!);
     renderer.setClearColor(0, 0);
     const lines = createOrbitalLines();
     const fluid = createFluidVideoRenderer(renderer, {
@@ -63,15 +62,16 @@ export default function IntroExperience() {
     window.addEventListener("pointermove", onPointer, { passive: true });
     document.documentElement.addEventListener("pointerleave", onLeave);
 
-    // Composite both modes over the same scene using the same live ink field.
+    // Composite the hero reveal over the shared scene; studio has its own ribbon.
     const sceneTarget = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false, stencilBuffer: false });
+    const pearlTrail = createPearlTrail(renderer, sceneTarget.texture);
     const inkScene = new THREE.Scene();
     const camera = new THREE.Camera();
     const inkGeometry = new THREE.PlaneGeometry(2, 2);
     const inkUniforms = {
       uInk: { value: null as THREE.Texture | null }, uScene: { value: sceneTarget.texture },
       uViewport: { value: new THREE.Vector2() }, uHeroBottom: { value: 1 },
-      uStudio: { value: new THREE.Vector2() }, uTime: { value: 0 }, uHasInk: { value: 0 },
+      uHasInk: { value: 0 },
     };
     const inkMaterial = new THREE.ShaderMaterial({
       uniforms: inkUniforms, depthTest: false, depthWrite: false, blending: THREE.NoBlending,
@@ -80,36 +80,16 @@ export default function IntroExperience() {
       fragmentShader: `
         varying vec2 vUv;
         uniform sampler2D uInk, uScene;
-        uniform vec2 uViewport, uStudio;
-        uniform float uHeroBottom, uTime, uHasInk;
-        float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
-        float noise(vec2 p) {
-          vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
-          return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.0),f.x),f.y);
-        }
+        uniform vec2 uViewport;
+        uniform float uHeroBottom, uHasInk;
         void main() {
           vec4 base=texture2D(uScene,vUv);
           if(uHasInk<0.5) { gl_FragColor=base; return; }
           vec4 ink=texture2D(uInk,vUv);
           float screenY=(1.0-vUv.y)*uViewport.y;
           float studioMode=smoothstep(uHeroBottom-8.0,uHeroBottom+8.0,screenY);
-          float inStudio=step(uStudio.x,screenY)*(1.0-step(uStudio.y,screenY));
           vec4 hero=vec4(ink.rgb+base.rgb*(1.0-ink.a),ink.a+base.a*(1.0-ink.a));
-          vec2 p=vUv*vec2(uViewport.x/uViewport.y,1.0)*7.0;
-          vec2 flow=vec2(noise(p+vec2(uTime*.22,-uTime*.15)),noise(p+12.7-uTime*.18))-.5;
-          // Clear liquid only: bend the scene underneath without adding color.
-          vec2 waves=vec2(sin(p.y*4.2+flow.x*5.0-uTime*1.9),
-            cos(p.x*3.8+flow.y*5.0+uTime*1.6));
-          vec2 texel=1.0/uViewport;
-          // Feather only the displacement boundary, not the hero's reveal.
-          float wet=ink.a*0.4;
-          wet+=texture2D(uInk,vUv+texel*vec2(5,0)).a*.15;
-          wet+=texture2D(uInk,vUv-texel*vec2(5,0)).a*.15;
-          wet+=texture2D(uInk,vUv+texel*vec2(0,5)).a*.15;
-          wet+=texture2D(uInk,vUv-texel*vec2(0,5)).a*.15;
-          vec2 offset=(flow*.6+waves*.4)*vec2(uViewport.y/uViewport.x,1.0)*.052*wet*inStudio;
-          vec4 liquid=texture2D(uScene,clamp(vUv+offset,0.001,0.999));
-          gl_FragColor=mix(hero,liquid,studioMode);
+          gl_FragColor=mix(hero,base,studioMode);
         }`,
     });
     const inkMesh = new THREE.Mesh(inkGeometry, inkMaterial);
@@ -120,9 +100,7 @@ export default function IntroExperience() {
     const tune = responsive(window.innerWidth);
     const timeline = gsap.timeline({ paused: true });
     timeline.to(state, { progress: 1, duration: tune.duration, ease: "sine.inOut" }, 0);
-    timeline.to(studio, { "--fade": 1, duration: tune.duration * 0.4, ease: "power2.in" }, 0);
-    gsap.set(studio, { "--fade": 0 });
-    const pinned = reduced ? null : createPinnedScene(studio, timeline, { hold: "+=45%", reverseAt: 0.5 });
+    const sceneScroll = reduced ? null : createAutoScrollScene(studio, timeline);
 
     const measure = () => { needsResize = true; };
     const observer = new ResizeObserver(measure);
@@ -168,16 +146,18 @@ export default function IntroExperience() {
         else video.pause();
       }
       if (bounds.bottom <= 0 || bounds.top >= window.innerHeight) {
-        textLiquid.update(0, pointer.x, pointer.y, false);
+        pearlTrail.update(0, 0, 0, false, width, height);
         return;
       }
       const dt = Math.min(elapsed / 1000, 0.05);
-      textLiquid.update(dt, pointer.x, pointer.y, !reduced && inStudio && pointer.has);
+      const studioPointer = !reduced && !coarse && pointer.has && pointer.y >= studioRect.top && pointer.y < studioRect.bottom;
+      pearlTrail.update(dt, pointer.x - stage.left, pointer.y - stage.top, studioPointer, width, height);
       const inHero = heroRect.bottom > 0 && heroRect.top < window.innerHeight;
       renderer.autoClear = true;
-      if (ink && cards && (inHero || inStudio)) {
-        const x = pointer.has ? (pointer.x - stage.left) / width : -1;
-        const y = pointer.has ? 1 - (pointer.y - stage.top) / height : -1;
+      if (ink && cards && inHero) {
+        const heroPointer = pointer.has && pointer.y < heroRect.bottom;
+        const x = heroPointer ? (pointer.x - stage.left) / width : -1;
+        const y = heroPointer ? 1 - (pointer.y - stage.top) / height : -1;
         ink.setMouse(x, y);
         if (inHero) cards.render(dt, pointer.has ? x : 0.5, pointer.has ? y : 0.5);
         ink.setHeroRegion(heroRect.top - stage.top, heroHeight, height);
@@ -187,8 +167,9 @@ export default function IntroExperience() {
       renderer.clear();
       renderer.autoClear = false;
       const scroll = Math.max(0, -bounds.top);
-      const length = heroHeight + (pinned ? pinned.trigger.end - pinned.trigger.start : studioHeight * 0.45);
-      lines.render(renderer, stage.top - bounds.top, reduced ? 1 : Math.min(1, scroll / Math.max(1, length)));
+      // Finish drawing across the hero, just before the studio video trigger.
+      const lineProgress = Math.min(1, scroll / Math.max(1, heroHeight * 0.92));
+      lines.render(renderer, stage.top - bounds.top, reduced ? 1 : lineProgress);
       if (fluid && inStudio && video.readyState >= 2 && !reduced) {
         const rect = (element: HTMLElement) => {
           const r = element.getBoundingClientRect();
@@ -203,21 +184,14 @@ export default function IntroExperience() {
       renderer.clear();
       inkUniforms.uHasInk.value = ink ? 1 : 0;
       inkUniforms.uHeroBottom.value = heroRect.bottom - stage.top;
-      inkUniforms.uStudio.value.set(studioRect.top - stage.top, studioRect.bottom - stage.top);
-      inkUniforms.uTime.value += dt;
       renderer.render(inkScene, camera);
-      if (!reduced) {
-        const progress = Math.min(1, scroll / Math.max(1, heroHeight));
-        const ease = progress * progress * (3 - 2 * progress);
-        word.style.transform = `translate3d(0,${-heroHeight * 0.4 * ease}px,0)`;
-        word.style.opacity = `${1 - Math.max(0, (progress - 0.5) / 0.5)}`;
-        const opacity = Math.max(0, 1 - progress * 2.4);
-        footer.style.transform = `translate3d(0,${50 * ease}px,0)`;
-        footer.style.opacity = `${opacity}`;
-        footer.style.pointerEvents = opacity < 0.05 ? "none" : "";
-      }
+      // Clip the independent ribbon to section 2 without another canvas/context.
+      renderer.setScissor(0, Math.max(0, height - (studioRect.bottom - stage.top)), width, Math.max(0, Math.min(height, studioRect.bottom - stage.top) - Math.max(0, studioRect.top - stage.top)));
+      renderer.setScissorTest(true);
+      pearlTrail.render();
+      renderer.setScissorTest(false);
       const readout = studio.querySelector<HTMLElement>("[data-fluid-readout]");
-      if (readout) readout.textContent = `Progress ${state.progress.toFixed(2)} · shared canvas ${canvas.width}×${canvas.height} · lines ${(Math.min(1, scroll / length) * 100).toFixed(0)}%`;
+      if (readout) readout.textContent = `Progress ${state.progress.toFixed(2)} · shared canvas ${canvas.width}×${canvas.height} · lines ${(lineProgress * 100).toFixed(0)}%`;
     };
     const onVisibility = () => {
       if (document.hidden) video.pause();
@@ -229,7 +203,7 @@ export default function IntroExperience() {
       disposed = true;
       loading.abort();
       gsap.ticker.remove(tick);
-      pinned?.kill();
+      sceneScroll?.kill();
       timeline.kill();
       observer.disconnect();
       window.removeEventListener("resize", measure);
@@ -238,8 +212,7 @@ export default function IntroExperience() {
       document.removeEventListener("visibilitychange", onVisibility);
       video.pause();
       video.style.opacity = "";
-      studio.style.removeProperty("--fade");
-      textLiquid.dispose();
+      pearlTrail.dispose();
       ink?.destroy();
       cards?.destroy();
       fluid?.dispose();
@@ -258,6 +231,7 @@ export default function IntroExperience() {
       </div>
       <Hero />
       <FluidVideoTransition />
+      {ENABLE_LINE_DRAWING_TOOL && <LineDrawingTool root={root} />}
     </div>
   );
 }

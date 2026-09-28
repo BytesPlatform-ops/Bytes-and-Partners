@@ -145,12 +145,13 @@ const SCROLL_KEYS = new Set([" ", "PageUp", "PageDown", "Home", "End", "ArrowUp"
  * Freezes the page where it is — for a pinned scene that must play out
  * without the page moving underneath it. Stops Lenis (which also kills its
  * momentum), blocks wheel / touch / scroll keys, and holds the native scroll
- * position against inertia already in flight. Returns the release.
+ * position against inertia already in flight. allowProgrammatic lets a
+ * coordinated scene move the document while user input is suspended. Returns the release.
  *
  * Deliberately NOT overflow: hidden — hiding the scrollbar would reflow the
  * page by its width and visibly jump the layout.
  */
-export function lockScroll(): () => void {
+export function lockScroll({ allowProgrammatic = false } = {}): () => void {
   const y = window.scrollY;
   activeLenis?.stop();
   const block = (e: Event) => {
@@ -165,7 +166,7 @@ export function lockScroll(): () => void {
   window.addEventListener("wheel", block, { passive: false, capture: true });
   window.addEventListener("touchmove", block, { passive: false, capture: true });
   window.addEventListener("keydown", blockKeys, { capture: true });
-  window.addEventListener("scroll", hold, { passive: true });
+  if (!allowProgrammatic) window.addEventListener("scroll", hold, { passive: true });
   let released = false;
   return () => {
     if (released) return;
