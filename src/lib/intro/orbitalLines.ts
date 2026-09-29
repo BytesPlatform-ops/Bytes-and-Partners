@@ -1,16 +1,13 @@
 import * as THREE from "three";
-import { INTRO_LINE_LAYOUTS, lineBreakpoint, lineSegments } from "./lineData";
+import { INTRO_LINE_LAYOUTS, SERVICES_LINE_LAYOUTS, lineBreakpoint, lineSegments, type LinePoint } from "./lineData";
 
 /** Path pixels drawn per pixel scrolled, at least. */
 const REVEAL_MIN_SPEED = 8;
-/** The drawing tip stays above this fraction of the viewport height. */
-const REVEAL_LEAD = 0.95;
-/** The path is complete by this fraction of the hero's height scrolled, just
- * before section 2 reaches the top and the video morph takes over. */
-const REVEAL_END = 0.99;
-
-/** Scroll offset at which each sample is drawn at a given pace: steady along
- * the path (loops included) but never ahead of REVEAL_LEAD down the viewport. */
+/** Let the drawing tip lead just beyond the viewport so the shortened
+ * services handoff can reveal its complete lower sweep without dead scroll. */
+const REVEAL_LEAD = 1.1;
+/** Scroll offset at which each sample is drawn at a steady pace along the
+ * path, while allowing the configured viewport lead. */
 function revealSchedule(points: THREE.Vector3[], step: number, viewport: number) {
   const schedule = [0];
   let deepest = points[0].y;
@@ -80,17 +77,20 @@ export function createOrbitalLines() {
       }
       return lo / count;
     },
-    resize(w: number, h: number, heroHeight: number, studioHeight: number) {
+    resize(w: number, h: number, heroHeight: number, studioHeight: number, servicesHeight: number) {
       camera.right = w;
       camera.bottom = h;
       camera.updateProjectionMatrix();
       lines.forEach((entry) => {
-        const totalHeight = heroHeight + studioHeight;
+        const introHeight = heroHeight + studioHeight;
         // Viewport width, like the CSS breakpoints that lay out the content.
         const breakpoint = lineBreakpoint(window.innerWidth);
+        const introPoints = INTRO_LINE_LAYOUTS[breakpoint].map(([x, y]) => [x * w, y * introHeight] as LinePoint);
+        const servicePoints = SERVICES_LINE_LAYOUTS[breakpoint].map(([x, y]) => [x * w, introHeight + y * servicesHeight] as LinePoint);
+        const pagePoints = [...introPoints, ...servicePoints];
         const curve = new THREE.CurvePath<THREE.Vector3>();
-        for (const segment of lineSegments(INTRO_LINE_LAYOUTS[breakpoint])) {
-          const [a, b, c, d] = segment.map(([x, y]) => new THREE.Vector3(x * w, y * totalHeight, 0));
+        for (const segment of lineSegments(pagePoints)) {
+          const [a, b, c, d] = segment.map(([x, y]) => new THREE.Vector3(x, y, 0));
           curve.add(new THREE.CubicBezierCurve3(a, b, c, d));
         }
         entry.halfWidth = (breakpoint === "mobile" ? entry.linewidth * 0.8 : entry.linewidth) / 2;
@@ -100,10 +100,10 @@ export function createOrbitalLines() {
         const points = curve.getSpacedPoints(Math.max(512, Math.ceil(curve.getLength() / 2)));
         entry.points = points;
         // Find the slowest pace (never under REVEAL_MIN_SPEED) that still
-        // finishes by REVEAL_END of the hero, so the loops draw as calmly as
-        // the deadline allows and the line is complete before the morph.
+        // finishes in the final portion of Services, so the same line keeps
+        // drawing through the hero, reel and service-card composition.
         const spacing = curve.getLength() / (points.length - 1);
-        const finish = heroHeight * REVEAL_END;
+        const finish = introHeight + servicesHeight * 0.82;
         let slow = REVEAL_MIN_SPEED;
         let fast = 200;
         if (revealSchedule(points, spacing / slow, h).at(-1)! > finish) {

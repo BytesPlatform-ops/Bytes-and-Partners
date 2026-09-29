@@ -101,6 +101,10 @@ export default function FeaturedWork() {
       className="relative h-[100svh] overflow-hidden bg-paper"
     >
       <canvas data-work-canvas className="absolute inset-0 h-full w-full" />
+      <header className="work-heading pointer-events-none absolute z-[1]">
+        <p><span>04</span> / Selected projects</p>
+        <h2>Featured <span>Work.</span></h2>
+      </header>
     </section>
   );
 }

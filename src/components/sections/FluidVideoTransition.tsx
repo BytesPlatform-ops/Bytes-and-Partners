@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ActionPill from "@/components/ui/ActionPill";
 import "./FluidVideoTransition.css";
 const VIDEO_SRC = "/video/reel-1080.mp4";
 const DEBUG_MODES = ["normal", "undistorted", "distortion map"] as const;
@@ -38,12 +39,7 @@ export default function FluidVideoTransition() {
             From the first screen to the last API call. Design, code, and the
             details between them — by the people you meet.
           </p>
-          <a href="#work" className="group mt-8 inline-flex min-h-14 items-center gap-9 rounded-full bg-blue py-2 pl-7 pr-2 text-sm font-medium text-paper shadow-[0_12px_30px_rgba(36,87,255,0.18)] transition-[background-color,transform] duration-300 hover:-translate-y-0.5 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue">
-            Our approach
-            <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-paper text-blue transition-transform duration-300 group-hover:translate-x-0.5 motion-reduce:transition-none">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>
-            </span>
-          </a>
+          <ActionPill href="#services" label="What we do" className="mt-8" />
         </div>
         <div data-media-start className="absolute left-[var(--bp-gut)] top-[max(72svh,34rem)] aspect-video w-[calc(100%-2*var(--bp-gut))] lg:top-[38svh] lg:w-[48%] motion-reduce:relative motion-reduce:left-auto motion-reduce:top-auto motion-reduce:w-full lg:motion-reduce:top-auto lg:motion-reduce:w-full">
           <video data-fluid-video src={VIDEO_SRC} muted loop playsInline preload="auto" aria-hidden

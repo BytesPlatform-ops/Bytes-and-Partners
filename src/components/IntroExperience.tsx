@@ -5,13 +5,14 @@ import * as THREE from "three";
 import gsap from "gsap";
 import Hero from "./hero/Hero";
 import FluidVideoTransition from "./sections/FluidVideoTransition";
+import ServicesSection from "./sections/ServicesSection";
 import { createFloatingCards, type FloatingCards } from "@/lib/hero/floatingCards";
 import { createInkTrail, type InkTrail } from "@/lib/hero/inkTrail";
 import { createFluidVideoRenderer } from "@/lib/fluid/createFluidVideoRenderer";
-import { createAutoScrollScene, travelFraction } from "@/lib/fluid/autoScrollScene";
-import { createDiveScene } from "@/lib/fluid/diveScene";
+import { createAutoScrollScene } from "@/lib/fluid/autoScrollScene";
 import { createPearlTrail } from "@/lib/intro/pearlTrail";
 import { createOrbitalLines } from "@/lib/intro/orbitalLines";
+import { createServiceCards } from "@/lib/services/serviceCards";
 import { isCoarsePointer, prefersReducedMotion } from "@/lib/animation/prefs";
 import LineDrawingTool from "./dev/LineDrawingTool";
 import { ENABLE_LINE_DRAWING_TOOL } from "@/lib/intro/lineData";
@@ -20,7 +21,7 @@ const responsive = (width: number) => width < 768
   ? { strength: 0.6, duration: 1.3 }
   : width < 1024 ? { strength: 0.8, duration: 1.5 } : { strength: 1, duration: 1.7 };
 
-/** One persistent canvas, renderer and visual tick for the first two sections. */
+/** One persistent canvas, renderer and visual tick for Hero, Reel and Services. */
 export default function IntroExperience() {
   const root = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -31,10 +32,12 @@ export default function IntroExperience() {
     if (!container || !canvas) return;
     const hero = container.querySelector<HTMLElement>("[data-hero]")!;
     const studio = container.querySelector<HTMLElement>("[data-fluid-transition]")!;
+    const services = container.querySelector<HTMLElement>("[data-services]")!;
     const start = container.querySelector<HTMLElement>("[data-media-start]")!;
     const end = container.querySelector<HTMLElement>("[data-media-end]")!;
     const video = container.querySelector<HTMLVideoElement>("[data-fluid-video]")!;
     const reel = container.querySelector<HTMLElement>("[data-reel-overlay]");
+    const serviceCardElements = Array.from(container.querySelectorAll<HTMLElement>("[data-service-card-visual]"));
     let reelShown = -1;
     const reduced = prefersReducedMotion();
     const coarse = isCoarsePointer();
@@ -45,6 +48,7 @@ export default function IntroExperience() {
     } catch { return; }
     renderer.setClearColor(0, 0);
     const lines = createOrbitalLines();
+    const serviceCards = createServiceCards();
     const fluid = createFluidVideoRenderer(renderer, {
       video, segments: coarse ? [48, 32] : [72, 48],
       radius: [14, 12], strength: responsive(window.innerWidth).strength, mipmaps: true,
@@ -56,6 +60,7 @@ export default function IntroExperience() {
     let height = 1;
     let heroHeight = 1;
     let studioHeight = 1;
+    let servicesHeight = 1;
     let dpr = 1;
     let needsResize = true;
     let videoVisible = false;
@@ -105,34 +110,23 @@ export default function IntroExperience() {
     timeline.to(state, { progress: 1, duration: tune.duration, ease: "sine.inOut" }, 0);
     const sceneScroll = reduced ? null : createAutoScrollScene(studio, timeline);
 
-    // While the dive rotates/scales the section, bounding rects are warped;
-    // render from the layout measured just before it started.
-    type Layout = { bounds: DOMRect; stage: DOMRect; heroRect: DOMRect; studioRect: DOMRect; startRect: DOMRect; endRect: DOMRect };
+    type Layout = { bounds: DOMRect; stage: DOMRect; heroRect: DOMRect; studioRect: DOMRect; servicesRect: DOMRect; startRect: DOMRect; endRect: DOMRect };
     const measureLayout = (): Layout => ({
       bounds: container.getBoundingClientRect(), stage: canvas.getBoundingClientRect(),
       heroRect: hero.getBoundingClientRect(), studioRect: studio.getBoundingClientRect(),
+      servicesRect: services.getBoundingClientRect(),
       startRect: start.getBoundingClientRect(), endRect: end.getBoundingClientRect(),
     });
-    let frozen: Layout | null = null;
-    const pill = studio.querySelector<HTMLElement>(".reel-button");
-    const overlay = container.querySelector<HTMLElement>("[data-dive-overlay]");
-    const next = document.querySelector<HTMLElement>("[data-featured-work]");
-    const dive = reduced || !pill || !overlay || !next ? null : createDiveScene({
-      section: studio,
-      layers: [canvas.parentElement!, studio],
-      pill, overlay, next,
-      nextContent: () => next.querySelector<HTMLElement>("[data-work-canvas]"),
-      startOffset: () => window.innerHeight * travelFraction(studio),
-      ready: () => timeline.progress() === 1 && !timeline.isActive(),
-      freeze: () => { frozen = measureLayout(); },
-      thaw: () => { frozen = null; },
-      suspendOthers: value => sceneScroll?.suspend(value),
-    });
-
+    let frozenLayout: Layout | null = null;
+    const freezeLayout = () => { frozenLayout = measureLayout(); };
+    const thawLayout = () => { frozenLayout = null; };
+    window.addEventListener("intro:dive-freeze", freezeLayout);
+    window.addEventListener("intro:dive-thaw", thawLayout);
     const measure = () => { needsResize = true; };
     const observer = new ResizeObserver(measure);
     observer.observe(hero);
     observer.observe(studio);
+    observer.observe(services);
     window.addEventListener("resize", measure, { passive: true });
 
     if (!reduced) void createFloatingCards(loading.signal).then(loaded => {
@@ -144,22 +138,23 @@ export default function IntroExperience() {
       needsResize = true;
     });
 
-    const tick = (_time: number, elapsed: number) => {
+    const tick = (time: number, elapsed: number) => {
       if (disposed || document.hidden) return;
-      const { bounds, stage, heroRect, studioRect, startRect, endRect } = frozen ?? measureLayout();
+      const { bounds, stage, heroRect, studioRect, servicesRect, startRect, endRect } = frozenLayout ?? measureLayout();
       if (needsResize) {
         needsResize = false;
         width = Math.max(1, stage.width);
         height = Math.max(1, stage.height);
         heroHeight = heroRect.height;
         studioHeight = studioRect.height;
+        servicesHeight = servicesRect.height;
         dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2);
         renderer.setPixelRatio(dpr);
         renderer.setSize(width, height, false);
         cards?.resize(heroRect.width, heroHeight);
         ink?.resize(width, height, dpr);
         sceneTarget.setSize(Math.round(width * dpr), Math.round(height * dpr));
-        lines.resize(width, height, heroHeight, studioHeight);
+        lines.resize(width, height, heroHeight, studioHeight, servicesHeight);
         inkUniforms.uViewport.value.set(width, height);
         if (fluid) fluid.strength = responsive(width).strength;
       }
@@ -174,8 +169,8 @@ export default function IntroExperience() {
         return;
       }
       const dt = Math.min(elapsed / 1000, 0.05);
-      const studioPointer = !reduced && !coarse && pointer.has && pointer.y >= studioRect.top && pointer.y < studioRect.bottom;
-      pearlTrail.update(dt, pointer.x - stage.left, pointer.y - stage.top, studioPointer, width, height);
+      const trailPointer = !reduced && !coarse && pointer.has && pointer.y >= studioRect.top && pointer.y < servicesRect.bottom;
+      pearlTrail.update(dt, pointer.x - stage.left, pointer.y - stage.top, trailPointer, width, height);
       const inHero = heroRect.bottom > 0 && heroRect.top < window.innerHeight;
       renderer.autoClear = true;
       if (ink && cards && inHero) {
@@ -195,6 +190,8 @@ export default function IntroExperience() {
       // as the page scrolls through sections 1 → 2, tip always in view.
       const lineProgress = lines.progressAtScroll(scroll);
       lines.render(renderer, stage.top - bounds.top, reduced ? 1 : lineProgress);
+      const inServices = servicesRect.top < window.innerHeight && servicesRect.bottom > 0;
+      if (inServices) serviceCards.render(renderer, serviceCardElements, stage, pointer, reduced ? 0 : time, dt);
       if (fluid && inStudio && video.readyState >= 2 && !reduced) {
         const rect = (r: DOMRect) => ({ x: r.left - stage.left, y: r.top - stage.top, w: r.width, h: r.height });
         fluid.layout({ w: width, h: height }, rect(startRect), rect(endRect));
@@ -214,8 +211,10 @@ export default function IntroExperience() {
       inkUniforms.uHasInk.value = ink ? 1 : 0;
       inkUniforms.uHeroBottom.value = heroRect.bottom - stage.top;
       renderer.render(inkScene, camera);
-      // Clip the independent ribbon to section 2 without another canvas/context.
-      renderer.setScissor(0, Math.max(0, height - (studioRect.bottom - stage.top)), width, Math.max(0, Math.min(height, studioRect.bottom - stage.top) - Math.max(0, studioRect.top - stage.top)));
+      // One liquid ribbon now carries from the reel through Services.
+      const trailBottom = servicesRect.bottom - stage.top;
+      const trailTop = studioRect.top - stage.top;
+      renderer.setScissor(0, Math.max(0, height - trailBottom), width, Math.max(0, Math.min(height, trailBottom) - Math.max(0, trailTop)));
       renderer.setScissorTest(true);
       pearlTrail.render();
       renderer.setScissorTest(false);
@@ -232,11 +231,12 @@ export default function IntroExperience() {
       disposed = true;
       loading.abort();
       gsap.ticker.remove(tick);
-      dive?.kill();
       sceneScroll?.kill();
       timeline.kill();
       observer.disconnect();
       window.removeEventListener("resize", measure);
+      window.removeEventListener("intro:dive-freeze", freezeLayout);
+      window.removeEventListener("intro:dive-thaw", thawLayout);
       window.removeEventListener("pointermove", onPointer);
       document.documentElement.removeEventListener("pointerleave", onLeave);
       document.removeEventListener("visibilitychange", onVisibility);
@@ -246,6 +246,7 @@ export default function IntroExperience() {
       ink?.destroy();
       cards?.destroy();
       fluid?.dispose();
+      serviceCards.dispose();
       lines.dispose();
       sceneTarget.dispose();
       inkGeometry.dispose();
@@ -261,8 +262,7 @@ export default function IntroExperience() {
       </div>
       <Hero />
       <FluidVideoTransition />
-      {/* The pill's blue, held full-screen while the dive swaps sections. */}
-      <div data-dive-overlay aria-hidden className="pointer-events-none invisible fixed inset-0 z-40 bg-blue opacity-0" />
+      <ServicesSection />
       {ENABLE_LINE_DRAWING_TOOL && <LineDrawingTool root={root} />}
     </div>
   );

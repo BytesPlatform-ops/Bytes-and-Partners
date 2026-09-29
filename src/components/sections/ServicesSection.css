@@ -1,0 +1,40 @@
+.services-section { isolation: isolate; }
+.services-stage { transform-origin: 50% 50%; }
+
+.services-heading [data-heading-upper] > span,
+.services-heading [data-heading-lower] > span {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+.service-orbit-card { will-change: transform, opacity; }
+.service-orbit-card__float,
+.service-orbit-card__surface { width: 100%; height: 100%; will-change: transform; }
+.service-orbit-card__body {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.service-orbit-card--1 { left: 12%; top: 18%; width: clamp(14rem, 22vw, 22rem); height: clamp(10.5rem, 16vw, 16rem); }
+.service-orbit-card--1 .service-orbit-card__surface { transform: rotate(-8deg); }
+.service-orbit-card--2 { right: 13%; top: 16%; width: clamp(12.5rem, 19vw, 19rem); height: clamp(9.5rem, 14vw, 14rem); }
+.service-orbit-card--2 .service-orbit-card__surface { transform: rotate(9deg); }
+.service-orbit-card--3 { left: 15%; bottom: 13%; width: clamp(13rem, 20vw, 20rem); height: clamp(10rem, 15vw, 15rem); }
+.service-orbit-card--3 .service-orbit-card__surface { transform: rotate(7deg); }
+.service-orbit-card--4 { right: 13%; bottom: 11%; width: clamp(14rem, 22vw, 22rem); height: clamp(10.5rem, 16vw, 16rem); }
+.service-orbit-card--4 .service-orbit-card__surface { transform: rotate(-6deg); }
+
+@media (max-width: 767px) {
+  .services-heading [data-heading-lower] { margin-top: 0.08em; }
+  .service-orbit-card--1 { left: 0; top: 14%; width: 52vw; height: 39vw; }
+  .service-orbit-card--2 { right: 0; top: 21%; width: 46vw; height: 35vw; }
+  .service-orbit-card--3 { left: 3%; bottom: 18%; width: 48vw; height: 37vw; }
+  .service-orbit-card--4 { right: 0; bottom: 12%; width: 53vw; height: 40vw; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .services-handoff { height: auto; }
+  .services-stage { position: relative; min-height: 100svh; }
+}

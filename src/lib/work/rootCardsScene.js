@@ -733,9 +733,7 @@ function createGlassVideoMaterial(
       uVideoBlend: { value: 0 },
       uVideoOpacity: { value: VIDEO_OPACITY },
       uHover: { value: 0 },
-      uHoverMotion: { value: 1 },
       uPointer: { value: new THREE.Vector2(0.5, 0.5) },
-      uInkTrail: { value: Array.from({ length: 8 }, () => new THREE.Vector2(0.5, 0.5)) },
       uTime: { value: 0 },
       // Card-local resolution keeps the SDF radius equal on both axes.
       uResolution: { value: new THREE.Vector2(CARD_WIDTH, CARD_HEIGHT) },
@@ -782,9 +780,7 @@ function createGlassVideoMaterial(
       uniform float uVideoBlend;
       uniform float uVideoOpacity;
       uniform float uHover;
-      uniform float uHoverMotion;
       uniform vec2 uPointer;
-      uniform vec2 uInkTrail[8];
       uniform float uTime;
       uniform vec2 uResolution;
       uniform float uCornerRadius;
@@ -859,25 +855,7 @@ function createGlassVideoMaterial(
           sin(vUv.y * 5.0 + uTime * 0.24),
           cos(vUv.x * 4.0 - uTime * 0.19)
         );
-        // Domain-warped ink follows a short cursor history. No concentric
-        // rings: the contour stretches, splits and curls along the gesture.
-        float inkTime = uTime * 0.55 * uHoverMotion;
-        vec2 inkFlow = vec2(fbm(p * 3.2 + vec2(inkTime, -inkTime * 0.6)),
-          fbm(p * 3.2 + vec2(-inkTime * 0.7, inkTime) + 13.7)) - 0.5;
-        vec2 inkPoint = p + inkFlow * 0.75;
-        float inkField = 0.0;
-        for (int i = 0; i < 8; i++) {
-          vec2 delta = inkPoint - (uInkTrail[i] - 0.5) * uResolution;
-          float trailRadius = mix(0.20, 0.075, float(i) / 7.0);
-          delta += vec2(sin(delta.y * 7.0 + inkTime), cos(delta.x * 6.0 - inkTime)) * 0.055;
-          inkField += trailRadius * trailRadius / (dot(delta, delta) + 0.008);
-        }
-        float inkNoise = fbm(p * 7.5 + inkFlow * 3.0 - inkTime * 0.3);
-        inkField += (inkNoise - 0.5) * 0.7;
-        float inkMask = smoothstep(0.8, 1.05, inkField);
-        float inkEdge = smoothstep(0.65, 0.9, inkField) - smoothstep(1.05, 1.3, inkField);
-        vec2 hoverWarp = inkFlow / uResolution * inkMask * 0.14 * uHover * uHoverMotion;
-        vec2 videoUv = vUv + warp * uDistortionStrength + hoverWarp;
+        vec2 videoUv = vUv + warp * uDistortionStrength;
         vec2 chromaticOffset = (vUv - 0.5) * uChromaticStrength;
         // A visible glass tint remains while media loads or if a file is missing.
         float flowTime = uTime * uFlowSpeed;
@@ -917,7 +895,6 @@ function createGlassVideoMaterial(
         float bevel = 1.0 - smoothstep(0.0, max(uRimWidth, 0.001), -distanceToEdge);
         vec2 bentUv = screenUv + liquid * uLiquid * vec2(uViewport.y / uViewport.x, 1.0);
         bentUv += (domain - 0.5) * uLiquid * 0.7;
-        bentUv += hoverWarp * 0.45;
         bentUv += normalize(p + vec2(0.0001)) * bevel * uRimWidth * 0.15;
         vec3 behindGlass = blurredScene(bentUv, screenUv);
         behindGlass *= vec3(0.88, 0.94, 1.0) * uSceneBrightness;
@@ -948,11 +925,6 @@ function createGlassVideoMaterial(
         float micrograin = noise(p * 75.0) - 0.5;
         float grainAA = 1.0 - smoothstep(0.7, 2.0, max(fwidth(grainGrid.x), fwidth(grainGrid.y)));
         color += (grain * grainAA + micrograin * 0.55) * uNoiseStrength;
-        float inkMarbling = smoothstep(0.35, 0.72, inkNoise);
-        color = mix(color, color * vec3(0.72, 0.88, 1.12), inkMask * uHover * 0.3);
-        color += vec3(0.035, 0.14, 0.48) * uHover
-          * (inkMask * (0.45 + inkMarbling * 0.65) + inkEdge * 0.22);
-        color += vec3(0.12, 0.32, 0.85) * edge * inkMask * uHover * 0.5;
         gl_FragColor = vec4(max(color, 0.0), clamp(uAlpha, 0.0, 1.0) * mask);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -1517,22 +1489,15 @@ function updateCards(
 
       const hover = item === hoveredCard && !caseStudy.open ? 1 : 0;
       const hoverUniform = item.material.uniforms.uHover;
-      const inkTrail = item.material.uniforms.uInkTrail.value;
       if (hover && !item.wasHovered) {
-        inkTrail.forEach(point => point.copy(hoverUv));
         item.material.uniforms.uPointer.value.copy(hoverUv);
       }
       item.wasHovered = Boolean(hover);
       hoverUniform.value = THREE.MathUtils.damp(hoverUniform.value, hover, 7, delta);
       const hoverMotion = reducedMotion.matches ? 0 : hoverUniform.value;
-      item.material.uniforms.uHoverMotion.value = reducedMotion.matches ? 0 : 1;
       item.card.position.z = CARD_DISTANCE + CARD_HOVER_LIFT * hoverMotion;
       if (item === hoveredCard) item.material.uniforms.uPointer.value.lerp(hoverUv, 1 - Math.exp(-12 * delta));
       const localPointer = item.material.uniforms.uPointer.value;
-      inkTrail[0].copy(localPointer);
-      for (let i = 1; i < inkTrail.length; i++) {
-        inkTrail[i].lerp(inkTrail[i - 1], reducedMotion.matches ? 1 : 1 - Math.exp(-8 * delta));
-      }
       item.card.rotation.x = CARD_TILT_X + (localPointer.y - 0.5) * CARD_HOVER_TILT * hoverMotion;
       item.card.rotation.y = CARD_YAW - (localPointer.x - 0.5) * CARD_HOVER_TILT * hoverMotion;
       item.material.uniforms.uTime.value = elapsed;
