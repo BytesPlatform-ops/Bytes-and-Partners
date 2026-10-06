@@ -26,6 +26,8 @@ type DiveOptions = {
   thaw: () => void;
   /** keep other scroll scenes from reacting to the dive's page jumps */
   suspendOthers: (value: boolean) => void;
+  /** state of the shared-canvas loader and the direction of its handoff */
+  setLoaderState?: (progress: number, active: boolean, direction: "forward" | "backward", holdWork: boolean) => void;
 };
 
 /** The reference makes a restrained turn before the pill fills the frame. */
@@ -106,8 +108,11 @@ export function createDiveScene(opts: DiveOptions) {
     reset();
     opts.thaw();
     const content = opts.nextContent();
+    const titleWords = opts.overlay.querySelectorAll<HTMLElement>("[data-dive-title-word]");
     if (content) gsap.set(content, { clearProps: "transform" });
+    gsap.set(titleWords, { opacity: 0, yPercent: 115 });
     gsap.set(opts.overlay, { autoAlpha: 0, clipPath: "inset(0% 0% 0% 0%)" });
+    opts.setLoaderState?.(0, false, "forward", false);
     opts.suspendOthers(false);
     active = null;
     release?.();
@@ -122,8 +127,15 @@ export function createDiveScene(opts: DiveOptions) {
     const content = opts.nextContent();
     const label = () => opts.pill.querySelector<HTMLElement>(".action-pill__label");
     const icon = () => opts.pill.querySelector<HTMLElement>(".action-pill__icon");
+    const titleWords = opts.overlay.querySelectorAll<HTMLElement>("[data-dive-title-word]");
+    gsap.set(titleWords, { opacity: 0, yPercent: 115 });
+    const direction = forward ? "forward" : "backward";
+    const loader = { progress: 0 };
+    let holdWork = !forward;
+    const syncLoader = () => opts.setLoaderState?.(loader.progress, true, direction, holdWork);
     const tl = gsap.timeline({ onComplete: finish });
     active = tl;
+    syncLoader();
 
     if (forward) {
       aim();
@@ -134,10 +146,15 @@ export function createDiveScene(opts: DiveOptions) {
         .to(icon(), { x: () => opts.pill.offsetWidth, opacity: 0, duration: 0.48, ease: "power3.in" }, 0.06)
         .to(zoom, { v: 1, duration: DIVE, ease: "power2.in", onUpdate: apply }, 0.36)
         .set(opts.overlay, { autoAlpha: 1, clipPath: "inset(0% 0% 0% 0%)" })
+        .set(loader, { progress: 1 })
+        .call(syncLoader)
         .call(() => { setNextVisible(true); reset(); opts.thaw(); jumpTo(nextTop()); })
+        .to(titleWords, { opacity: 1, yPercent: 0, duration: 0.58, stagger: 0.08, ease: "power3.out" })
         .to({}, { duration: BLUE_HOLD })
         .addLabel("reveal")
-        .to(opts.overlay, { clipPath: "inset(0% 0% 100% 0%)", duration: REVEAL, ease: "power3.inOut" }, "reveal");
+        .to(titleWords, { opacity: 0, yPercent: -115, duration: 0.48, stagger: 0.06, ease: "power3.in" }, "reveal")
+        .to(opts.overlay, { clipPath: "inset(0% 0% 100% 0%)", duration: REVEAL, ease: "power3.inOut" }, "reveal")
+        .to(loader, { progress: 0, duration: REVEAL, ease: "power3.inOut", onUpdate: syncLoader }, "reveal");
       if (content) tl.fromTo(content, { scale: 1.18, rotation: -ROTATION / 5 }, { scale: 1, rotation: 0, duration: REVEAL * 1.25, ease: "expo.out" }, "reveal+=0.1");
       return;
     }
@@ -146,7 +163,11 @@ export function createDiveScene(opts: DiveOptions) {
     // source already zoomed into the pill, and the section flies out.
     tl.fromTo(opts.overlay,
       { autoAlpha: 1, clipPath: "inset(0% 0% 100% 0%)" },
-      { clipPath: "inset(0% 0% 0% 0%)", duration: REVEAL, ease: "power3.inOut" });
+      { clipPath: "inset(0% 0% 0% 0%)", duration: REVEAL, ease: "power3.inOut" })
+      .to(loader, { progress: 1, duration: REVEAL, ease: "power3.inOut", onUpdate: syncLoader }, 0)
+      .to(titleWords, { opacity: 1, yPercent: 0, duration: 0.58, stagger: 0.08, ease: "power3.out" })
+      .to({}, { duration: BLUE_HOLD })
+      .to(titleWords, { opacity: 0, yPercent: -115, duration: 0.48, stagger: 0.06, ease: "power3.in" });
     if (content) tl.to(content, { scale: 1.18, rotation: -ROTATION / 5, duration: REVEAL * 0.8, ease: "expo.in" }, 0);
     tl.call(() => {
       jumpTo(startTop());
@@ -162,6 +183,7 @@ export function createDiveScene(opts: DiveOptions) {
       apply();
       if (content) gsap.set(content, { clearProps: "transform" });
     })
+      .call(() => { holdWork = false; loader.progress = 0; syncLoader(); })
       .set(opts.overlay, { autoAlpha: 0 })
       .to(zoom, { v: 0, duration: DIVE, ease: "power2.out", onUpdate: apply, onStart: () => opts.pill.classList.remove("is-diving-instant") })
       .to(label(), { opacity: 1, x: 0, duration: 0.32, ease: "power2.out" }, `-=${DIVE * 0.42}`)

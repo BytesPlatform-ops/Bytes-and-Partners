@@ -5,8 +5,9 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 /**
  * Embedded version of shader-learning; the section owns scrolling and frames.
  * @param {HTMLCanvasElement} canvas
+ * @param {THREE.WebGLRenderer} [sharedRenderer]
  */
-export function createRootCardsScene(canvas) {
+export function createRootCardsScene(canvas, sharedRenderer) {
 const events = new AbortController();
 let disposed = false;
 let suspended = false;
@@ -23,10 +24,12 @@ const CAMERA_OPEN_FOV = 52;
 const CAMERA_FOV_TRANSITION_SPEED = 5;
 
 const CAMERA_START_Y = 8.9;
-const CAMERA_END_Y = -7.2;
+// Stop on the twelfth and final card. The previous -7.2 endpoint continued
+// well below the collection after Future Interfaces had already passed.
+const CAMERA_END_Y = -0.55;
 
 const CAMERA_START_ANGLE = 0.25;
-const CAMERA_END_ANGLE = Math.PI * 3.6;
+const CAMERA_END_ANGLE = 6.74;
 
 const CAMERA_BASE_RADIUS = 12;
 
@@ -208,47 +211,23 @@ scene.add(camera);
 // RENDERER
 // ======================================================
 
-const renderer =
-  new THREE.WebGLRenderer({
+const ownsRenderer = !sharedRenderer;
+const renderer = sharedRenderer ?? new THREE.WebGLRenderer({
     canvas,
     antialias: true,
     alpha: true
   });
 
-renderer.setSize(
-  window.innerWidth,
-  window.innerHeight,
-  false
-);
-
-renderer.setPixelRatio(
-  Math.min(
-    window.devicePixelRatio,
-    2
-  )
-);
-
-renderer.outputColorSpace =
-  THREE.SRGBColorSpace;
-
-renderer.shadowMap.enabled =
-  true;
-
-renderer.shadowMap.type =
-  THREE.PCFSoftShadowMap;
-
-
-// better highlights / glass
-renderer.toneMapping =
-  THREE.ACESFilmicToneMapping;
-
-renderer.toneMappingExposure =
-  1.05;
-
-
-renderer.domElement.classList.add(
-  'webgl'
-);
+if (ownsRenderer) {
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.domElement.classList.add('webgl');
+}
 
 
 
@@ -1620,8 +1599,10 @@ function updateCameraFov(elapsed) {
 function resize(width, height) {
   camera.aspect = width / Math.max(1, height);
   camera.updateProjectionMatrix();
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(width, height, false);
+  if (ownsRenderer) {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(width, height, false);
+  }
   resizeGlassTarget();
 }
 
@@ -1728,6 +1709,7 @@ renderer.domElement.setAttribute('aria-label', 'Open current project case study'
 let pointerStart = null;
 listen(renderer.domElement, 'pointerdown', event => { pointerStart = new THREE.Vector2(event.clientX, event.clientY); });
 listen(renderer.domElement, 'click', event => {
+  if (suspended) return;
   if (pointerStart && pointerStart.distanceTo(new THREE.Vector2(event.clientX, event.clientY)) > 8) return;
   const rect = canvas.getBoundingClientRect();
   hoverPointer.set((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2);
@@ -1735,6 +1717,7 @@ listen(renderer.domElement, 'click', event => {
   if (hoveredCard === activeCard && activeCard) openCaseStudy(activeCard);
 });
 listen(renderer.domElement, 'keydown', event => {
+  if (suspended) return;
   if ((event.key === 'Enter' || event.key === ' ') && activeCard) { event.preventDefault(); openCaseStudy(activeCard); }
 });
 
@@ -1744,7 +1727,7 @@ const hoverPointer = new THREE.Vector2(2, 2);
 const hoverUv = new THREE.Vector2(0.5, 0.5);
 let hoveredCard = null;
 function updateHover() {
-  if (caseStudy.open) { hoveredCard = null; return; }
+  if (suspended || caseStudy.open) { hoveredCard = null; renderer.domElement.style.cursor = ''; return; }
   hoverRay.setFromCamera(hoverPointer, camera);
   const hit = hoverRay.intersectObjects(cardPivots.map(item => item.card), false)[0];
   hoveredCard = hit ? cardPivots.find(item => item.card === hit.object) : null;
@@ -1794,19 +1777,31 @@ function animate() {
   updateCameraFov(elapsed);
   updateHover();
 
-  cardsGroup.visible = false;
   const toneMapping = renderer.toneMapping;
+  const toneMappingExposure = renderer.toneMappingExposure;
+  const autoClear = renderer.autoClear;
+  const shadows = renderer.shadowMap.enabled;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true;
+  renderer.autoClear = true;
+
+  cardsGroup.visible = false;
   renderer.toneMapping = THREE.NoToneMapping;
   renderer.setRenderTarget(glassSceneTarget);
+  renderer.clear();
   renderer.render(scene, camera);
   renderer.setRenderTarget(null);
-  renderer.toneMapping = toneMapping;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
   cardsGroup.visible = true;
 
-  renderer.render(
-    scene,
-    camera
-  );
+  renderer.clear();
+  renderer.render(scene, camera);
+
+  renderer.toneMapping = toneMapping;
+  renderer.toneMappingExposure = toneMappingExposure;
+  renderer.shadowMap.enabled = shadows;
+  renderer.autoClear = autoClear;
 }
 
 
@@ -1814,8 +1809,17 @@ return {
   frame: animate,
   resize,
   setProgress(progress) { targetScroll = THREE.MathUtils.clamp(progress, 0, 1); },
-  setVisible(visible) {
+  setVisible(visible, interactive = visible) {
     suspended = !visible;
+    renderer.domElement.tabIndex = interactive ? 0 : -1;
+    renderer.domElement.style.pointerEvents = interactive ? 'auto' : 'none';
+    if (interactive) {
+      renderer.domElement.setAttribute('role', 'button');
+      renderer.domElement.setAttribute('aria-label', 'Open current project case study');
+    } else {
+      renderer.domElement.removeAttribute('role');
+      renderer.domElement.removeAttribute('aria-label');
+    }
     if (!visible) cardPivots.forEach(item => item.video.pause());
     else if (activeCard && !caseStudy.open) activeCard.video.play().catch(() => {});
   },
@@ -1826,7 +1830,8 @@ return {
     caseHero.getAnimations().forEach(animation => animation.cancel());
     caseStudy.close();
     caseStudy.remove();
-    canvas.classList.remove('webgl', 'work-case-open');
+    canvas.classList.remove('work-case-open');
+    if (ownsRenderer) canvas.classList.remove('webgl');
     canvas.style.cursor = '';
     for (const video of [...cardPivots.map(item => item.video), caseVideo]) {
       video.pause();
@@ -1848,7 +1853,7 @@ return {
     backgroundTexture.dispose();
     studioEnvironment.dispose();
     glassSceneTarget.dispose();
-    renderer.dispose();
+    if (ownsRenderer) renderer.dispose();
   }
 };
 

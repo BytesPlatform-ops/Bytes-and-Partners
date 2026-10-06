@@ -68,12 +68,17 @@ export default function ServicesSection() {
       pill,
       overlay,
       next,
-      nextContent: () => next.querySelector<HTMLElement>("[data-work-canvas]"),
+      // Work now renders on the already-moving shared canvas; there is no
+      // second canvas to settle independently on the far side of the dive.
+      nextContent: () => null,
       startOffset: () => window.innerHeight * 0.04,
       ready: () => true,
       freeze: () => window.dispatchEvent(new Event("intro:dive-freeze")),
       thaw: () => window.dispatchEvent(new Event("intro:dive-thaw")),
       suspendOthers: () => {},
+      setLoaderState: (progress, active, direction, holdWork) => window.dispatchEvent(new CustomEvent("intro:loader-state", {
+        detail: { progress, active, direction, holdWork },
+      })),
     });
     const refreshFrame = window.requestAnimationFrame(() => ScrollTrigger.refresh());
 
