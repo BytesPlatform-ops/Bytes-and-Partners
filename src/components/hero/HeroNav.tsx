@@ -15,6 +15,7 @@ import SiteMenu from "./SiteMenu";
 export default function HeroNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [buttonActive, setButtonActive] = useState(false);
+  const [menuOrigin, setMenuOrigin] = useState<DOMRectReadOnly | null>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
 
   const closeMenu = useCallback(() => {
@@ -29,6 +30,9 @@ export default function HeroNav() {
     if (menuOpen) {
       closeMenu();
       return;
+    }
+    if (menuButton.current) {
+      setMenuOrigin(menuButton.current.getBoundingClientRect());
     }
     setButtonActive(true);
     setMenuOpen(true);
@@ -70,7 +74,7 @@ export default function HeroNav() {
           open={menuOpen}
           onClose={closeMenu}
           onClosed={handleMenuClosed}
-          triggerRef={menuButton}
+          origin={menuOrigin}
         />
       </div>
     </header>
