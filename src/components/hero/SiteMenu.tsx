@@ -1,4 +1,6 @@
-import type { CSSProperties } from "react";
+"use client";
+
+import { useLayoutEffect, useRef, type RefObject } from "react";
 import styles from "./SiteMenu.module.css";
 
 const links = [
@@ -11,14 +13,78 @@ const links = [
 type SiteMenuProps = {
   open: boolean;
   onClose: () => void;
-  triggerSize: { width: number; height: number };
+  onClosed: () => void;
+  triggerRef: RefObject<HTMLButtonElement | null>;
 };
 
-export default function SiteMenu({ open, onClose, triggerSize }: SiteMenuProps) {
-  const panelStyle = {
-    "--trigger-width": `${triggerSize.width}px`,
-    "--trigger-height": `${triggerSize.height}px`,
-  } as CSSProperties;
+export default function SiteMenu({ open, onClose, onClosed, triggerRef }: SiteMenuProps) {
+  const panelRef = useRef<HTMLElement>(null);
+  const animationRef = useRef<Animation | null>(null);
+  const hasOpened = useRef(false);
+
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    const trigger = triggerRef.current;
+    if (!panel || !trigger || (!open && !hasOpened.current)) return;
+
+    animationRef.current?.cancel();
+    const triggerRect = trigger.getBoundingClientRect();
+    const currentRect = panel.getBoundingClientRect();
+    const rightGap = window.innerWidth - triggerRect.right;
+    const panelWidth = Math.min(432, window.innerWidth - rightGap * 2);
+    const expanded = {
+      left: triggerRect.right - panelWidth,
+      top: triggerRect.top,
+      width: panelWidth,
+      height: window.innerHeight - triggerRect.top * 2,
+      borderRadius: 28,
+    };
+    const collapsed = {
+      left: triggerRect.left,
+      top: triggerRect.top,
+      width: triggerRect.width,
+      height: triggerRect.height,
+      borderRadius: triggerRect.height / 2,
+    };
+    const from = open
+      ? (hasOpened.current
+          ? { left: currentRect.left, top: currentRect.top, width: currentRect.width, height: currentRect.height, borderRadius: parseFloat(getComputedStyle(panel).borderRadius) }
+          : collapsed)
+      : { left: currentRect.left, top: currentRect.top, width: currentRect.width, height: currentRect.height, borderRadius: parseFloat(getComputedStyle(panel).borderRadius) };
+    const to = open ? expanded : collapsed;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    panel.style.visibility = "visible";
+    panel.style.pointerEvents = open ? "auto" : "none";
+    const animation = panel.animate(
+      [
+        { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, borderRadius: `${from.borderRadius}px` },
+        { left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, borderRadius: `${to.borderRadius}px` },
+      ],
+      { duration: reducedMotion ? 0 : 680, easing: "cubic-bezier(0.16, 1, 0.3, 1)", fill: "forwards" },
+    );
+    animationRef.current = animation;
+    hasOpened.current = true;
+
+    animation.onfinish = () => {
+      panel.style.left = `${to.left}px`;
+      panel.style.top = `${to.top}px`;
+      panel.style.width = `${to.width}px`;
+      panel.style.height = `${to.height}px`;
+      panel.style.borderRadius = `${to.borderRadius}px`;
+      animation.cancel();
+      animationRef.current = null;
+      if (!open) {
+        panel.style.visibility = "hidden";
+        onClosed();
+      }
+    };
+
+    return () => {
+      animation.onfinish = null;
+      animation.cancel();
+    };
+  }, [open, onClosed, triggerRef]);
 
   return (
     <>
@@ -31,10 +97,10 @@ export default function SiteMenu({ open, onClose, triggerSize }: SiteMenuProps) 
         onClick={onClose}
       />
       <aside
+        ref={panelRef}
         id="site-menu"
         className={styles.panel}
         data-open={open}
-        style={panelStyle}
         aria-hidden={!open}
         aria-label="Site menu"
       >

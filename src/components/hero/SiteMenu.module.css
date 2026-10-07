@@ -15,43 +15,28 @@
 }
 
 .panel {
-  position: absolute;
+  position: fixed;
   z-index: 1;
   top: 0;
-  right: 0;
+  left: 0;
   display: flex;
-  width: var(--trigger-width);
-  height: var(--trigger-height);
+  width: 0;
+  height: 0;
   overflow: hidden;
   flex-direction: column;
   padding: clamp(4.75rem, 7vw, 5.5rem) clamp(1.5rem, 3vw, 2.25rem) clamp(1.5rem, 3vw, 2.25rem);
   border: 1px solid rgb(17 17 17 / 0.06);
-  border-radius: 999px;
+  border-radius: 1.75rem;
   background: rgb(248 248 250 / 0.97);
   box-shadow: 0 1.5rem 5rem rgb(19 20 26 / 0.1);
   color: #111111;
   opacity: 1;
   pointer-events: none;
   visibility: hidden;
-  transition:
-    width 560ms cubic-bezier(0.16, 1, 0.3, 1),
-    height 380ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-radius 160ms ease 400ms,
-    visibility 0s linear 560ms;
 }
 
 .panel[data-open="true"] {
-  width: min(27rem, calc(100vw - 2 * var(--bp-gut)));
-  height: calc(100svh - 2 * var(--bp-gut));
-  border-radius: 1.75rem;
   opacity: 1;
-  pointer-events: auto;
-  visibility: visible;
-  transition:
-    width 400ms cubic-bezier(0.16, 1, 0.3, 1),
-    height 680ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-radius 560ms cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0s linear 0s;
 }
 
 .heading {
@@ -211,14 +196,7 @@
 
 @media (max-width: 639px) {
   .panel {
-    position: fixed;
-    top: var(--bp-gut);
-    right: var(--bp-gut);
     padding-top: 4.75rem;
-  }
-
-  .panel[data-open="true"] {
-    width: calc(100vw - 2 * var(--bp-gut));
   }
 
   .bottom {
@@ -245,7 +223,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .backdrop,
-  .panel,
   .links a,
   .links svg { transition: none; }
 }

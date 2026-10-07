@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import NavButton from "../ui/NavButton";
 import SiteMenu from "./SiteMenu";
 
@@ -15,44 +15,20 @@ import SiteMenu from "./SiteMenu";
 export default function HeroNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [buttonActive, setButtonActive] = useState(false);
-  const [triggerSize, setTriggerSize] = useState({ width: 112, height: 48 });
   const menuButton = useRef<HTMLButtonElement>(null);
-  const closeTimer = useRef<number | null>(null);
-
-  useLayoutEffect(() => {
-    const button = menuButton.current;
-    if (!button) return;
-    const measure = () => {
-      const { width, height } = button.getBoundingClientRect();
-      setTriggerSize({ width, height });
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(button);
-    return () => observer.disconnect();
-  }, []);
 
   const closeMenu = useCallback(() => {
     setMenuOpen(false);
-    if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    closeTimer.current = window.setTimeout(() => {
-      setButtonActive(false);
-      closeTimer.current = null;
-    }, 560);
+  }, []);
+
+  const handleMenuClosed = useCallback(() => {
+    setButtonActive(false);
   }, []);
 
   const toggleMenu = () => {
     if (menuOpen) {
       closeMenu();
       return;
-    }
-    if (closeTimer.current) {
-      window.clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-    if (menuButton.current) {
-      const { width, height } = menuButton.current.getBoundingClientRect();
-      setTriggerSize({ width, height });
     }
     setButtonActive(true);
     setMenuOpen(true);
@@ -66,10 +42,6 @@ export default function HeroNav() {
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [closeMenu, menuOpen]);
-
-  useEffect(() => () => {
-    if (closeTimer.current) window.clearTimeout(closeTimer.current);
-  }, []);
 
   return (
     <header data-hero-nav className="pointer-events-none fixed inset-x-0 top-0 z-50 flex items-start justify-between gap-6 px-[var(--bp-gut)] pt-[var(--bp-gut)] [&>*]:pointer-events-auto">
@@ -94,7 +66,12 @@ export default function HeroNav() {
         >
           {buttonActive ? "Close" : "Menu"}
         </NavButton>
-        <SiteMenu open={menuOpen} onClose={closeMenu} triggerSize={triggerSize} />
+        <SiteMenu
+          open={menuOpen}
+          onClose={closeMenu}
+          onClosed={handleMenuClosed}
+          triggerRef={menuButton}
+        />
       </div>
     </header>
   );
