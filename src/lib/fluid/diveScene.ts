@@ -206,10 +206,11 @@ export function createDiveScene(opts: DiveOptions) {
   // Scrolling up into the band above the next section: fly out again. (The
   // dive lands on the band's lower edge, so any upward scroll from there counts.)
   const back = ScrollTrigger.create({
-    trigger: opts.next,
-    start: "top bottom",
-    end: "top top",
-    onEnterBack: () => play(false),
+    // Use an absolute scroll band rather than the pinned destination element.
+    // Its DOM rect changes as Featured Work enters/leaves its own pin, which can
+    // otherwise look like upward navigation and incorrectly replay the dive.
+    start: () => nextTop() - window.innerHeight,
+    end: () => nextTop(),
     onUpdate: self => { if (self.direction < 0 && self.progress < 1) play(false); },
   });
 
