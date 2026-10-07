@@ -5,7 +5,7 @@ export default function SiteFooter() {
     <div className={styles.stage}>
     <footer id="contact" data-site-footer className={styles.footer}>
       <div className={styles.head}>
-        <p className={styles.eyebrow}>Bytes &amp; Partners / New York</p>
+        <p className={styles.eyebrow}>Bytes &amp; Partners / Texas</p>
         <a className={styles.email} href="mailto:info@bytesandpartners.co">info@bytesandpartners.co</a>
       </div>
 

@@ -63,7 +63,7 @@ export default function IntroExperience() {
     const serviceCards = createServiceCards();
     const fluid = createFluidVideoRenderer(renderer, {
       video, segments: coarse ? [48, 32] : [72, 48],
-      radius: [14, 12], strength: responsive(window.innerWidth).strength, mipmaps: true,
+      radius: [18, 28], strength: responsive(window.innerWidth).strength, mipmaps: true,
     });
     let cards: FloatingCards | null = null;
     let ink: InkTrail | null = null;

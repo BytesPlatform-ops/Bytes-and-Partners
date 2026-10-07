@@ -18,7 +18,7 @@ export default function NotFound() {
         </Link>
       </div>
 
-      <span className="hero-meta">New York</span>
+      <span className="hero-meta">Texas</span>
     </section>
   );
 }

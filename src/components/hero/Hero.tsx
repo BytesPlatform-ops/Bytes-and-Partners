@@ -154,7 +154,7 @@ export default function Hero() {
           <p className="hero-meta whitespace-nowrap">
             Technology studio
             <span className="mx-2 opacity-40">/</span>
-            New York
+            Texas
           </p>
 
         </div>

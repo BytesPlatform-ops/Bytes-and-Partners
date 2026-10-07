@@ -57,10 +57,10 @@ export default function HeroNav() {
     <header data-hero-nav className="pointer-events-none fixed inset-x-0 top-0 z-50 flex items-start justify-between gap-6 px-[var(--bp-gut)] pt-[var(--bp-gut)] [&>*]:pointer-events-auto">
       <a
         href="#top"
-        aria-label="Bytes and Partners — home"
+        aria-label="Bytes — home"
         className="hero-mark text-ink transition-opacity duration-500 hover:opacity-60"
       >
-        Bytes &amp; Partners
+        BYTES.
       </a>
 
       <div className="relative flex items-center gap-2 sm:gap-3">

@@ -76,7 +76,7 @@ export default async function OpengraphImage() {
             textTransform: "uppercase",
           }}
         >
-          <span>Technology studio / New York</span>
+          <span>Technology studio / Texas</span>
           <span>bytesandpartners.co</span>
         </div>
       </div>

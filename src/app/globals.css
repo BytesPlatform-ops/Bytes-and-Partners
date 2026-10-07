@@ -132,9 +132,9 @@
 
   /* ------------------------------------------------- supporting marks */
   .hero-mark {
-    font-size: 0.6875rem;
+    font-size: 1.6rem;
     font-weight: 600;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     white-space: nowrap;
   }

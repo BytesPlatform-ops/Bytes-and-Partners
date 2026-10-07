@@ -1,0 +1,198 @@
+.player {
+  position: fixed;
+  z-index: 200;
+  inset: 0;
+  overflow: hidden;
+  background: #08090d;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  cursor: none;
+  transition:
+    opacity 520ms ease 240ms,
+    visibility 0s linear 760ms;
+}
+
+.player[data-open="true"] {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  transition:
+    opacity 700ms ease,
+    visibility 0s linear;
+}
+
+.video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #08090d;
+}
+
+.close {
+  position: absolute;
+  top: var(--showreel-cursor-y);
+  left: var(--showreel-cursor-x);
+  width: clamp(4.25rem, 7vw, 7rem);
+  height: clamp(4.25rem, 7vw, 7rem);
+  border: 0;
+  border-radius: 50%;
+  background: #f7f7fa;
+  color: #161823;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1), background-color 300ms ease;
+}
+
+.player[data-open="true"] .close {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  transition:
+    width 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 650ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 180ms ease,
+    background-color 300ms ease;
+}
+
+.player:not([data-open="true"]) .close {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 240ms ease-in, opacity 190ms ease-in;
+}
+
+.close:hover,
+.close:focus-visible {
+  background: #2457ff;
+  color: #ffffff;
+  transform: translate(-50%, -50%) rotate(90deg) scale(1.06);
+}
+
+.close span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 38%;
+  height: 1.5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.close span:first-child { transform: translate(-50%, -50%) rotate(45deg); }
+.close span:last-child { transform: translate(-50%, -50%) rotate(-45deg); }
+
+.player[data-controls-hover="true"] .close {
+  width: 1.5rem;
+  height: 1.5rem;
+  background: #ffffff;
+}
+
+.player[data-controls-hover="true"] .close span { opacity: 0; }
+
+.controls {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: auto auto minmax(4rem, 1fr) auto auto;
+  align-items: center;
+  gap: clamp(0.65rem, 1.5vw, 1.5rem);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 1rem rgb(0 0 0 / 0.7);
+  padding: clamp(4rem, 9vh, 7rem) clamp(1rem, 4vw, 4rem) clamp(1.25rem, 3.5vw, 3rem);
+  background: linear-gradient(to bottom, transparent, rgb(0 0 0 / 0.6));
+}
+
+.controlButton {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.timeline {
+  height: 1rem;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.timeline::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #ffffff var(--showreel-progress), rgb(255 255 255 / 0.3) var(--showreel-progress));
+}
+
+.timeline::-webkit-slider-thumb {
+  width: 0;
+  height: 0;
+  appearance: none;
+}
+
+.timeline::-moz-range-track {
+  height: 3px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.3);
+}
+
+.timeline::-moz-range-progress {
+  height: 3px;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.timeline::-moz-range-thumb {
+  width: 0;
+  height: 0;
+  border: 0;
+}
+
+.time {
+  min-width: 2.7rem;
+  color: rgb(255 255 255 / 0.7);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+@media (max-width: 639px) {
+  .player { cursor: auto; }
+
+  .close {
+    top: 1rem;
+    right: 1rem;
+    left: auto;
+    pointer-events: auto;
+    transform: none;
+  }
+
+  .player:not([data-open="true"]) .close { transform: scale(0); }
+  .player[data-open="true"] .close { transform: scale(1); }
+
+  .close:hover,
+  .close:focus-visible { transform: rotate(90deg) scale(1.06); }
+
+  .controls {
+    grid-template-columns: auto minmax(3rem, 1fr) auto;
+  }
+
+  .time { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player,
+  .player[data-open="true"],
+  .close { transition: none; }
+}

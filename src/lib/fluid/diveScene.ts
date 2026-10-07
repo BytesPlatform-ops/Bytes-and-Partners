@@ -114,6 +114,11 @@ export function createDiveScene(opts: DiveOptions) {
     gsap.set(opts.overlay, { autoAlpha: 0, clipPath: "inset(0% 0% 0% 0%)" });
     opts.setLoaderState?.(0, false, "forward", false);
     opts.suspendOthers(false);
+    // Do not let wheel/touch input accumulated while scrolling was locked
+    // count as a fresh request after the programmatic handoff. Without this,
+    // the destination trigger can immediately send us back to Services and
+    // then replay the Featured Work transition a second time.
+    lastInput = -Infinity;
     active = null;
     release?.();
     release = null;

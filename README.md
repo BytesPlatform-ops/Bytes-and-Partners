@@ -34,7 +34,7 @@ BYTES & PARTNERS                        • Start a project    Menu ≡
 
           BytesPlatform.
 
-TECHNOLOGY STUDIO / NEW YORK                            SCROLL │
+TECHNOLOGY STUDIO / TEXAS                            SCROLL │
 ```
 
 One grotesk, one accent, a great deal of nothing. The word is lower-middle and
