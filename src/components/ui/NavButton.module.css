@@ -1,0 +1,194 @@
+.button {
+  position: relative;
+  display: inline-flex;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding-block: 0;
+  border: 0;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background-color 420ms cubic-bezier(0.16, 1, 0.3, 1), color 300ms ease;
+}
+
+.action {
+  padding-left: 2rem;
+  padding-right: 2.5rem;
+  background: #292b36;
+  color: #f0f1fa;
+}
+
+.menu {
+  padding-inline: 1.15rem;
+  background: #e2e3eb;
+  color: #111111;
+  transition:
+    background-color 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 300ms ease,
+    transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.menu:hover,
+.menu:focus-visible,
+.menu[data-active="true"] {
+  background: #292b36;
+  color: #f0f1fa;
+}
+
+.menu[data-active="true"] { transform: translate(-0.25rem, 0.25rem); }
+
+.label {
+  display: block;
+  transition: transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.arrow,
+.dot {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.arrow {
+  left: 1.15rem;
+  display: grid;
+  width: 1rem;
+  height: 1rem;
+  place-items: center;
+  opacity: 0;
+  transform: translate(-0.8rem, -50%);
+  transition: opacity 220ms ease, transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.arrow svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.dot {
+  right: 1.25rem;
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 1;
+  transition: opacity 180ms ease, transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.action:hover,
+.action:focus-visible {
+  background: #152fff;
+}
+
+.action:hover .arrow,
+.action:focus-visible .arrow {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+.action:hover .dot,
+.action:focus-visible .dot {
+  opacity: 0;
+  transform: translate(0.75rem, -50%);
+}
+
+.action:hover .label,
+.action:focus-visible .label {
+  transform: translateX(0.9rem);
+}
+
+.menuDots {
+  position: relative;
+  display: inline-flex;
+  width: 0.88rem;
+  height: 0.88rem;
+  align-items: center;
+  transition: transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.menuDots span {
+  position: absolute;
+  top: 50%;
+  display: block;
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: currentColor;
+  transform: translateY(-50%);
+  transition:
+    left 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    right 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    width 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-radius 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.menuDots span:first-child { left: 0; }
+.menuDots span:last-child { right: 0; }
+
+.menu:hover .menuDots,
+.menu:focus-visible .menuDots,
+.menu[data-active="true"] .menuDots {
+  transform: rotate(90deg);
+}
+
+.menu:hover .menuDots span:first-child,
+.menu:focus-visible .menuDots span:first-child {
+  transform: translateY(calc(-50% - 0.08rem));
+}
+
+.menu:hover .menuDots span:last-child,
+.menu:focus-visible .menuDots span:last-child {
+  transform: translateY(calc(-50% + 0.08rem));
+}
+
+.menu[data-active="true"] .menuDots {
+  transform: rotate(0deg);
+}
+
+.menu[data-active="true"] .menuDots span {
+  left: 50%;
+  right: auto;
+  width: 1rem;
+  height: 1.5px;
+  border-radius: 999px;
+}
+
+.menu[data-active="true"] .menuDots span:first-child {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.menu[data-active="true"] .menuDots span:last-child {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+@media (min-width: 640px) {
+  .button { height: 3rem; font-size: 0.8125rem; }
+  .action { padding-left: 2rem; padding-right: 2.5rem; }
+  .menu { padding-inline: 1.5rem; }
+  .arrow { left: 1.35rem; }
+  .dot { right: 1.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .label,
+  .arrow,
+  .dot,
+  .menuDots,
+  .menuDots span { transition: none; }
+}

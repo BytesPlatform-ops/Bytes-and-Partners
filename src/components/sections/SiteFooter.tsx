@@ -10,13 +10,20 @@ export default function SiteFooter() {
       </div>
 
       <div className={styles.contactGrid}>
-        <section><p className={styles.label}>Phone</p><a href="tel:+16313889360">+1 631 388 9360</a></section>
-        <address><p className={styles.label}>Address</p><p>675 Hawkins Road East</p><p>Coram, NY 11727</p><p>United States</p></address>
+        <section><p className={styles.label}>Phone</p><a className={styles.underlined} href="tel:+16313889360">+1 631 388 9360</a></section>
+        <address>
+          <p className={styles.label}>Address</p>
+          <a className={styles.addressLink} href="https://maps.google.com/?q=675+Hawkins+Road+East+Coram+NY+11727" target="_blank" rel="noreferrer">
+            <span>675 Hawkins Road East</span>
+            <span>Coram, NY 11727</span>
+            <span>United States</span>
+          </a>
+        </address>
         <nav aria-label="Social media" className={styles.socials}>
           <p className={styles.label}>Social</p>
-          <a href="https://www.facebook.com/" target="_blank" rel="noreferrer">Facebook <span>↗</span></a>
-          <a href="https://www.instagram.com/" target="_blank" rel="noreferrer">Instagram <span>↗</span></a>
-          <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer">LinkedIn <span>↗</span></a>
+          <a className={styles.motionLink} href="https://www.facebook.com/" target="_blank" rel="noreferrer"><span aria-hidden>↗</span><span>Facebook</span></a>
+          <a className={styles.motionLink} href="https://www.instagram.com/" target="_blank" rel="noreferrer"><span aria-hidden>↗</span><span>Instagram</span></a>
+          <a className={styles.motionLink} href="https://www.linkedin.com/" target="_blank" rel="noreferrer"><span aria-hidden>↗</span><span>LinkedIn</span></a>
         </nav>
       </div>
 

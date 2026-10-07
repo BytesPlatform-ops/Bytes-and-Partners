@@ -44,6 +44,7 @@ export default function IntroExperience() {
     const services = container.querySelector<HTMLElement>("[data-services]")!;
     const work = container.querySelector<HTMLElement>("[data-featured-work]")!;
     const footer = container.querySelector<HTMLElement>("[data-site-footer]")!;
+    const nav = container.querySelector<HTMLElement>("[data-hero-nav]")!;
     const start = container.querySelector<HTMLElement>("[data-media-start]")!;
     const end = container.querySelector<HTMLElement>("[data-media-end]")!;
     const video = container.querySelector<HTMLVideoElement>("[data-fluid-video]")!;
@@ -198,25 +199,43 @@ export default function IntroExperience() {
       // A shared full-screen canvas cannot use intersection preloading here:
       // drawing Work even one frame early replaces the still-visible Services
       // scene. Activate it only once its pinned section reaches the viewport.
-      const workOnStage = workRect.top <= 1 && workRect.bottom > 1;
-      // Clip the live canvas to the departing Work panel so its rounded lower
-      // edge travels upward and reveals the footer underneath.
-      if (workRect.top < -1) {
-        const visibleBottom = THREE.MathUtils.clamp(workRect.bottom - stage.top, 0, height);
-        const clippedBottom = Math.max(0, height - visibleBottom);
+      // The pinned element's DOMRect changes coordinate modes when GSAP
+      // releases it. Drive the outro from the trigger's absolute scroll range
+      // instead so the value stays continuous across that handoff.
+      const workStart = workTrigger?.start ?? Number.POSITIVE_INFINITY;
+      const workEnd = workTrigger?.end ?? Number.POSITIVE_INFINITY;
+      const scrollY = window.scrollY;
+      const footerRevealHeight = footer.offsetHeight;
+      const workDeparture = workTrigger
+        ? THREE.MathUtils.clamp(scrollY - workEnd, 0, footerRevealHeight)
+        : 0;
+      const workOnStage = workTrigger
+        ? scrollY >= workStart - 1 && scrollY < workEnd + height
+        : workRect.top <= 1 && workRect.bottom > 1;
+      // Once its pin releases, move the complete Work viewport upward as one
+      // rigid panel. The footer stays fixed beneath it; only the panel's actual
+      // bottom corners are rounded (there is no shrinking mask or crop).
+      if (workDeparture > 0) {
         const radius = THREE.MathUtils.clamp(width * 0.035, 28, 64);
-        canvas.style.clipPath = `inset(0 0 ${clippedBottom}px 0 round 0 0 ${radius}px ${radius}px)`;
+        const departure = -workDeparture;
+        canvas.style.transform = `translate3d(0, ${departure}px, 0)`;
+        canvas.style.borderRadius = `0 0 ${radius}px ${radius}px`;
+        nav.style.transform = `translate3d(0, ${departure}px, 0)`;
         canvasLayer.style.zIndex = "2";
+        canvasLayer.style.pointerEvents = "none";
         footer.style.visibility = "visible";
       } else {
-        canvas.style.clipPath = "none";
+        canvas.style.transform = "none";
+        canvas.style.borderRadius = "0";
+        nav.style.transform = "none";
         canvasLayer.style.zIndex = "0";
+        canvasLayer.style.pointerEvents = "";
         footer.style.visibility = "hidden";
       }
       // On the way back, keep Work alive underneath the descending blue wipe
       // until the handoff jumps to Services; otherwise the canvas flashes blank.
       const shouldRenderWork = workOnStage || holdWorkForLoader;
-      const shouldInteractWithWork = workOnStage && !loaderActive;
+      const shouldInteractWithWork = workOnStage && workDeparture === 0 && !loaderActive;
       if (workVisible !== shouldRenderWork || workInteractive !== shouldInteractWithWork) {
         workVisible = shouldRenderWork;
         workInteractive = shouldInteractWithWork;
@@ -338,8 +357,11 @@ export default function IntroExperience() {
       document.removeEventListener("visibilitychange", onVisibility);
       video.pause();
       video.style.opacity = "";
-      canvas.style.clipPath = "";
+      canvas.style.transform = "";
+      canvas.style.borderRadius = "";
+      nav.style.transform = "";
       canvasLayer.style.zIndex = "";
+      canvasLayer.style.pointerEvents = "";
       footer.style.visibility = "";
       pearlTrail.dispose();
       ink?.destroy();

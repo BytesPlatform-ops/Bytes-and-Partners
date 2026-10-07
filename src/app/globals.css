@@ -172,19 +172,6 @@
     background: var(--bp-accent);
   }
 
-  .hero-bars {
-    display: inline-flex;
-    flex-direction: column;
-    gap: 3px;
-    margin-left: 0.15rem;
-  }
-  .hero-bars > span {
-    display: block;
-    width: 11px;
-    height: 1px;
-    background: currentColor;
-  }
-
   .hero-meta {
     font-size: 0.6875rem;
     font-weight: 500;
