@@ -103,6 +103,11 @@ export function createDiveScene(opts: DiveOptions) {
   // The next canvas must not peek through beneath the sticky source scene if
   // momentum briefly carries the page past the handoff before the dive locks.
   setNextVisible(window.scrollY >= nextTop() - 2);
+  // Once the dive has landed on the next section, the forward trigger stays
+  // spent until the page goes back above it. Landing can round to a pixel
+  // short of the trigger's end, so the next scroll down would otherwise read
+  // as entering the dive band again and replay the whole transition.
+  let landed = window.scrollY >= nextTop() - 2;
 
   const finish = () => {
     reset();
@@ -126,7 +131,7 @@ export function createDiveScene(opts: DiveOptions) {
 
   function play(forward: boolean) {
     if (active || !intended()) return;
-    if (forward && !opts.ready()) return;
+    if (forward && (landed || !opts.ready())) return;
     release = lockScroll({ allowProgrammatic: true });
     opts.suspendOthers(true);
     const content = opts.nextContent();
@@ -153,7 +158,7 @@ export function createDiveScene(opts: DiveOptions) {
         .set(opts.overlay, { autoAlpha: 1, clipPath: "inset(0% 0% 0% 0%)" })
         .set(loader, { progress: 1 })
         .call(syncLoader)
-        .call(() => { setNextVisible(true); reset(); opts.thaw(); jumpTo(nextTop()); })
+        .call(() => { setNextVisible(true); reset(); opts.thaw(); landed = true; jumpTo(Math.ceil(nextTop())); })
         .to(titleWords, { opacity: 1, yPercent: 0, duration: 0.58, stagger: 0.08, ease: "power3.out" })
         .to({}, { duration: BLUE_HOLD })
         .addLabel("reveal")
@@ -176,6 +181,7 @@ export function createDiveScene(opts: DiveOptions) {
     if (content) tl.to(content, { scale: 1.18, rotation: -ROTATION / 5, duration: REVEAL * 0.8, ease: "expo.in" }, 0);
     tl.call(() => {
       jumpTo(startTop());
+      landed = false;
       setNextVisible(false);
       aim();
       opts.freeze();
@@ -202,6 +208,8 @@ export function createDiveScene(opts: DiveOptions) {
     end: "bottom top",
     onUpdate: self => { if (self.direction > 0 && self.progress > 0) play(true); },
     onLeave: () => play(true),
+    // Back above the band without the reverse dive (e.g. an anchor jump).
+    onLeaveBack: () => { landed = false; },
   });
   // Scrolling up into the band above the next section: fly out again. (The
   // dive lands on the band's lower edge, so any upward scroll from there counts.)
