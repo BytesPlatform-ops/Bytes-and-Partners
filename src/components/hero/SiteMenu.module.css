@@ -14,14 +14,17 @@
   pointer-events: auto;
 }
 
+/* Sits 6px outside the Menu button on top and right, and as far from the bottom. */
 .panelShell {
+  --edge: calc(var(--bp-gut) - 6px);
   position: fixed;
   z-index: 1;
-  top: 0;
-  left: 0;
-  width: 0;
-  height: 0;
+  top: var(--edge);
+  right: var(--edge);
+  bottom: var(--edge);
+  width: min(432px, 100vw - var(--bp-gut) * 2);
   overflow: hidden;
+  clip-path: ellipse(0% 0% at 100% 0%);
   border: 1px solid rgb(17 17 17 / 0.06);
   border-radius: 1.75rem;
   background: rgb(248 248 250 / 0.97);
@@ -68,7 +71,7 @@
   align-items: center;
   justify-content: space-between;
   margin-inline: -0.8rem;
-  padding: 0.42rem 0.8rem;
+  padding: 0.34rem 1.4rem 0.34rem 1.6rem;
   border-radius: 999px;
   color: inherit;
   font-size: clamp(2rem, 3.1vw, 3rem);
@@ -108,8 +111,49 @@
 .links a:hover,
 .links a:focus-visible {
   background: #e3e5ff;
-  color: #152fff;
   transition-delay: 0s;
+}
+
+.links a:focus-visible,
+.utilityLinks a:focus-visible,
+.socials a:focus-visible {
+  outline: none;
+}
+
+/* ---- Letter roll (shared by nav and utility links) ---- */
+.roll {
+  display: inline-block;
+}
+
+.rollLetters {
+  display: inline-flex;
+}
+
+/* Clip each letter vertically only, so tight tracking never shaves glyph edges. */
+.rollLetters > span {
+  display: inline-block;
+  line-height: 1.15;
+  clip-path: inset(0 -0.25em);
+}
+
+.rollLetters > span > span {
+  position: relative;
+  display: block;
+  transition: transform 440ms cubic-bezier(0.65, 0, 0.35, 1) calc(var(--c) * 16ms);
+}
+
+.rollLetters > span > span::after {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  content: attr(data-char);
+}
+
+.links a:hover .rollLetters > span > span,
+.links a:focus-visible .rollLetters > span > span,
+.utilityLinks a:hover .rollLetters > span > span,
+.utilityLinks a:focus-visible .rollLetters > span > span {
+  transform: translateY(-100%);
 }
 
 .links svg {
@@ -150,8 +194,12 @@
   gap: 0.5rem;
 }
 
+/* Utility pills: a fill rises from below while the label rolls over to white. */
 .utilityLinks a {
-  padding: 0.45rem 0.7rem;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 0.38rem 0.7rem;
   border: 1px solid rgb(17 17 17 / 0.48);
   border-radius: 999px;
   color: #111111;
@@ -159,32 +207,78 @@
   font-weight: 550;
   line-height: 1;
   text-decoration: none;
-  transition: background-color 240ms ease, color 240ms ease, border-color 240ms ease;
+  transition: color 300ms ease 60ms, border-color 300ms ease;
+}
+
+.utilityLinks a::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: #152fff;
+  content: "";
+  transform: translateY(101%);
+  transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .utilityLinks a:hover,
 .utilityLinks a:focus-visible {
   border-color: #152fff;
-  background: #152fff;
   color: #ffffff;
 }
 
+.utilityLinks a:hover::before,
+.utilityLinks a:focus-visible::before {
+  transform: none;
+}
+
+/* Socials: a fill blooms from the centre and the icon drops out and back in. */
 .socials a {
+  position: relative;
+  isolation: isolate;
   display: grid;
+  overflow: hidden;
   width: 2.35rem;
   height: 2.35rem;
   place-items: center;
   border: 1px solid rgb(17 17 17 / 0.48);
   border-radius: 50%;
   color: #111111;
-  transition: background-color 240ms ease, color 240ms ease, border-color 240ms ease;
+  transition: color 300ms ease 60ms, border-color 300ms ease;
+}
+
+.socials a::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: #152fff;
+  content: "";
+  transform: scale(0);
+  transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .socials a:hover,
 .socials a:focus-visible {
   border-color: #152fff;
-  background: #152fff;
   color: #ffffff;
+}
+
+.socials a:hover::before,
+.socials a:focus-visible::before {
+  transform: none;
+}
+
+.socials a:hover svg,
+.socials a:focus-visible svg {
+  animation: icon-drop 520ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+@keyframes icon-drop {
+  0% { transform: none; }
+  45% { transform: translateY(160%); }
+  46% { transform: translateY(-160%); }
+  100% { transform: none; }
 }
 
 .socials svg {
@@ -232,5 +326,11 @@
 @media (prefers-reduced-motion: reduce) {
   .backdrop,
   .links a,
-  .links svg { transition: none; }
+  .links svg,
+  .rollLetters > span > span,
+  .utilityLinks a::before,
+  .socials a::before { transition: none; }
+
+  .socials a:hover svg,
+  .socials a:focus-visible svg { animation: none; }
 }

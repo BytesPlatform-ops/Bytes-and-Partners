@@ -3,24 +3,12 @@
 import { useEffect, useState } from "react";
 import ActionPill from "@/components/ui/ActionPill";
 import "./FluidVideoTransition.css";
-const VIDEO_SRC = "/video/reel-1080.mp4";
 const DEBUG_MODES = ["normal", "undistorted", "distortion map"] as const;
 
 /** DOM layout only; IntroExperience owns the shared visual system. */
 export default function FluidVideoTransition() {
   const [debug, setDebug] = useState(false);
   const [mode, setMode] = useState(0);
-  const [sound, setSound] = useState(false);
-  // The reel loops muted in the background; the button restarts it with sound.
-  const toggleSound = () => {
-    const video = document.querySelector<HTMLVideoElement>("[data-fluid-video]");
-    if (!video) return;
-    if (sound) { video.muted = true; setSound(false); return; }
-    video.currentTime = 0;
-    video.muted = false;
-    video.play().catch(() => {});
-    setSound(true);
-  };
   useEffect(() => {
     if (process.env.NODE_ENV !== "production" && new URLSearchParams(window.location.search).has("fluid-debug")) setDebug(true);
   }, []);
@@ -42,8 +30,19 @@ export default function FluidVideoTransition() {
           <ActionPill href="#services" label="What we do" className="mt-8" />
         </div>
         <div data-media-start className="absolute left-[var(--bp-gut)] top-[max(72svh,34rem)] aspect-video w-[calc(100%-2*var(--bp-gut))] lg:top-[38svh] lg:w-[48%] motion-reduce:relative motion-reduce:left-auto motion-reduce:top-auto motion-reduce:w-full lg:motion-reduce:top-auto lg:motion-reduce:w-full">
-          <video data-fluid-video src={VIDEO_SRC} muted loop playsInline preload="auto" aria-hidden
-            className="absolute inset-0 h-full w-full rounded-[14px] object-cover object-center" />
+          <video
+            data-fluid-video
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            poster="/showreel/card-poster.webp"
+            aria-hidden
+            className="absolute inset-0 h-full w-full rounded-[14px] object-cover object-center"
+          >
+            <source src="/showreel/card-preview.webm" type='video/webm; codecs="av01"' />
+            <source src="/showreel/card-preview.mp4" type="video/mp4" />
+          </video>
         </div>
         <div data-media-end className="pointer-events-none absolute left-[var(--bp-gut)] right-[var(--bp-gut)] top-[52svh] h-[70svh] md:top-[39svh] md:h-[64svh] lg:top-[54svh] lg:h-[72svh] 2xl:top-[58svh] motion-reduce:hidden">
           {/* Revealed by IntroExperience as the video settles into this frame. */}
@@ -51,17 +50,11 @@ export default function FluidVideoTransition() {
             <span aria-hidden className="text-[clamp(2.75rem,9.5vw,10rem)] font-light uppercase leading-none tracking-[-0.03em]">Play</span>
             <button
               type="button"
-              aria-label={sound ? "Mute reel" : "Play reel with sound"}
-              aria-pressed={sound}
-              onClick={toggleSound}
+              aria-label="Play showreel"
               className="reel-button pointer-events-auto relative isolate flex h-[clamp(3.5rem,7.5vw,7.5rem)] w-[clamp(5.75rem,12.5vw,12.5rem)] shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-paper text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-paper"
             >
               <span aria-hidden className="reel-button__fill absolute inset-0 -z-10 bg-blue" />
-              {sound ? (
-                <svg aria-hidden viewBox="0 0 24 24" className="h-[32%] w-auto" fill="currentColor"><rect x="5" y="4" width="5" height="16" rx="1" /><rect x="14" y="4" width="5" height="16" rx="1" /></svg>
-              ) : (
-                <svg aria-hidden viewBox="0 0 24 24" className="h-[32%] w-auto translate-x-[6%]" fill="currentColor"><path d="M6 3.5v17a1 1 0 0 0 1.52.85l13.6-8.5a1 1 0 0 0 0-1.7L7.52 2.65A1 1 0 0 0 6 3.5Z" /></svg>
-              )}
+              <svg aria-hidden viewBox="0 0 24 24" className="h-[32%] w-auto translate-x-[6%]" fill="currentColor"><path d="M6 3.5v17a1 1 0 0 0 1.52.85l13.6-8.5a1 1 0 0 0 0-1.7L7.52 2.65A1 1 0 0 0 6 3.5Z" /></svg>
             </button>
             <span aria-hidden className="text-[clamp(2.75rem,9.5vw,10rem)] font-light uppercase leading-none tracking-[-0.03em]">Reel</span>
           </div>

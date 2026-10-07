@@ -48,6 +48,12 @@
   transition: transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Fixed slot so swapping Menu ⇄ Close never resizes the button or shifts the bar. */
+.menu .label {
+  width: 3em;
+  text-align: center;
+}
+
 .arrow,
 .dot {
   position: absolute;

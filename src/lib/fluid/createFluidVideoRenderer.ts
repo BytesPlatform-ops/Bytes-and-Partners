@@ -62,6 +62,7 @@ export function createFluidVideoRenderer(
     uC2: { value: new THREE.Vector2() },
     uC3: { value: new THREE.Vector2() },
     uRadius: { value: opts.radius[0] },
+    uTintAmount: { value: 0.40 },
     uDebug: { value: 0 },
   };
 
@@ -116,6 +117,8 @@ export function createFluidVideoRenderer(
       uniforms.uEnvelope.value = Math.sin(Math.PI * t);
       uniforms.uTime.value = t * 3; // progress-derived: frozen when idle
       uniforms.uRadius.value = opts.radius[0] + (opts.radius[1] - opts.radius[0]) * t;
+      const tintProgress = Math.min(1, Math.max(0, (t - 0.05) / 0.8));
+      uniforms.uTintAmount.value = 0.40 * (1 - tintProgress * tintProgress * (3 - 2 * tintProgress));
       uniforms.uDebug.value = api.debugMode;
       uniforms.uStrength.value = api.strength;
       renderer.render(scene, camera);

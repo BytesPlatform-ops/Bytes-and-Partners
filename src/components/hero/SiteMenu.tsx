@@ -9,80 +9,81 @@ const links = [
   { label: "Contact", href: "#contact" },
 ];
 
+const CLOSED_CLIP = "ellipse(0% 0% at 100% 0%)";
+// √2 × the card's size: the smallest ellipse that just covers its far corner.
+const OPEN_CLIP = "ellipse(142% 142% at 100% 0%)";
+
+/**
+ * Each letter sits in its own clipped slot with a copy just below it; on hover
+ * the copies roll up one after another, so the word shuffles rather than slides.
+ */
+function RollText({ text }: { text: string }) {
+  return (
+    <span className={styles.roll}>
+      <span className="sr-only">{text}</span>
+      <span aria-hidden="true" className={styles.rollLetters}>
+        {Array.from(text).map((char, index) => {
+          const glyph = char === " " ? " " : char;
+          return (
+            <span key={index} style={{ "--c": index } as React.CSSProperties}>
+              <span data-char={glyph}>{glyph}</span>
+            </span>
+          );
+        })}
+      </span>
+    </span>
+  );
+}
+
 type SiteMenuProps = {
   open: boolean;
   onClose: () => void;
+  onOpened: () => void;
   onClosed: () => void;
-  origin: DOMRectReadOnly | null;
 };
 
-export default function SiteMenu({ open, onClose, onClosed, origin }: SiteMenuProps) {
+export default function SiteMenu({ open, onClose, onOpened, onClosed }: SiteMenuProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const animationRef = useRef<Animation | null>(null);
   const hasOpened = useRef(false);
 
   useLayoutEffect(() => {
     const panel = panelRef.current;
-    if (!panel || !origin || (!open && !hasOpened.current)) return;
+    if (!panel || (!open && !hasOpened.current)) return;
+    hasOpened.current = true;
 
-    animationRef.current?.cancel();
-    const currentRect = panel.getBoundingClientRect();
-    const rightGap = window.innerWidth - origin.right;
-    const padding = 6.0;
-    const panelWidth = Math.min(432, window.innerWidth - rightGap * 2);
-    const expanded = {
-      left: origin.right - panelWidth + padding,
-      top: origin.top - padding,
-      width: panelWidth,
-      height: window.innerHeight - origin.top * 2 + padding * 2,
-      borderRadius: 28,
-    };
-    const collapsed = {
-      left: origin.left,
-      top: origin.top,
-      width: origin.width,
-      height: origin.height,
-      borderRadius: origin.height / 2,
-    };
-    const from = open
-      ? (hasOpened.current
-          ? { left: currentRect.left, top: currentRect.top, width: currentRect.width, height: currentRect.height, borderRadius: parseFloat(getComputedStyle(panel).borderRadius) }
-          : collapsed)
-      : { left: currentRect.left, top: currentRect.top, width: currentRect.width, height: currentRect.height, borderRadius: parseFloat(getComputedStyle(panel).borderRadius) };
-    const to = open ? expanded : collapsed;
+    // HeroNav ignores toggles mid-animation, so every run starts from an end state.
+    const from = open ? CLOSED_CLIP : OPEN_CLIP;
+    const to = open ? OPEN_CLIP : CLOSED_CLIP;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let cancelled = false;
 
     panel.style.visibility = "visible";
     panel.style.pointerEvents = open ? "auto" : "none";
+    // The card peels open from its top-right corner as a growing ellipse.
     const animation = panel.animate(
-      [
-        { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, borderRadius: `${from.borderRadius}px` },
-        { left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, borderRadius: `${to.borderRadius}px` },
-      ],
-      { duration: reducedMotion ? 0 : 500, easing: "cubic-bezier(0.16, 1, 0.3, 1)", fill: "forwards" },
+      [{ clipPath: from }, { clipPath: to }],
+      { duration: reducedMotion ? 0 : 600, easing: "cubic-bezier(0.65, 0, 0.35, 1)", fill: "forwards" },
     );
-    animationRef.current = animation;
-    hasOpened.current = true;
 
-    animation.onfinish = () => {
-      panel.style.left = `${to.left}px`;
-      panel.style.top = `${to.top}px`;
-      panel.style.width = `${to.width}px`;
-      panel.style.height = `${to.height}px`;
-      panel.style.borderRadius = `${to.borderRadius}px`;
+    animation.finished.then(async () => {
+      // Commit the end shape before dropping the animation so no frame falls back to CSS.
+      panel.style.clipPath = to;
       animation.cancel();
-      animationRef.current = null;
-      if (!open) {
+      if (open) {
+        // Opening isn't done until the staggered links have settled too.
+        await Promise.all(panel.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => undefined)));
+        if (!cancelled) onOpened();
+      } else {
         panel.style.visibility = "hidden";
         onClosed();
       }
-    };
+    }, () => undefined);
 
     return () => {
-      animation.onfinish = null;
+      cancelled = true;
       animation.cancel();
     };
-  }, [open, onClosed, origin]);
+  }, [open, onOpened, onClosed]);
 
   return (
     <>
@@ -111,7 +112,7 @@ export default function SiteMenu({ open, onClose, onClosed, origin }: SiteMenuPr
                 style={{ "--item-index": index } as React.CSSProperties}
                 onClick={onClose}
               >
-                <span>{link.label}</span>
+                <RollText text={link.label} />
                 <svg viewBox="0 0 16 16" aria-hidden="true">
                   <path d="M2.343 8h11.314m0 0-4.984 4.984M13.657 8 8.673 3.016" />
                 </svg>
@@ -121,9 +122,9 @@ export default function SiteMenu({ open, onClose, onClosed, origin }: SiteMenuPr
 
           <div className={styles.bottom}>
             <div className={styles.utilityLinks}>
-              <a href="#services" tabIndex={open ? 0 : -1}>Process</a>
-              <a href="mailto:info@bytesandpartners.co?subject=Careers" tabIndex={open ? 0 : -1}>Careers</a>
-              <a href="#work" tabIndex={open ? 0 : -1}>Journal</a>
+              <a href="#services" tabIndex={open ? 0 : -1}><RollText text="Process" /></a>
+              <a href="mailto:info@bytesandpartners.co?subject=Careers" tabIndex={open ? 0 : -1}><RollText text="Careers" /></a>
+              <a href="#work" tabIndex={open ? 0 : -1}><RollText text="Journal" /></a>
             </div>
             <div className={styles.socials}>
               <a href="https://www.instagram.com/" target="_blank" rel="noreferrer" tabIndex={open ? 0 : -1} aria-label="Instagram">

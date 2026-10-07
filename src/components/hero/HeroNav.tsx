@@ -15,25 +15,31 @@ import SiteMenu from "./SiteMenu";
 export default function HeroNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [buttonActive, setButtonActive] = useState(false);
-  const [menuOrigin, setMenuOrigin] = useState<DOMRectReadOnly | null>(null);
-  const menuButton = useRef<HTMLButtonElement>(null);
+  // True while the menu is mid-animation; every toggle is ignored until it settles.
+  const animating = useRef(false);
 
   const closeMenu = useCallback(() => {
+    if (animating.current) return;
+    animating.current = true;
     setMenuOpen(false);
   }, []);
 
+  const handleMenuOpened = useCallback(() => {
+    animating.current = false;
+  }, []);
+
   const handleMenuClosed = useCallback(() => {
+    animating.current = false;
     setButtonActive(false);
   }, []);
 
   const toggleMenu = () => {
+    if (animating.current) return;
     if (menuOpen) {
       closeMenu();
       return;
     }
-    if (menuButton.current) {
-      setMenuOrigin(menuButton.current.getBoundingClientRect());
-    }
+    animating.current = true;
     setButtonActive(true);
     setMenuOpen(true);
   };
@@ -66,15 +72,14 @@ export default function HeroNav() {
           active={buttonActive}
           controls="site-menu"
           onClick={toggleMenu}
-          buttonRef={menuButton}
         >
           {buttonActive ? "Close" : "Menu"}
         </NavButton>
         <SiteMenu
           open={menuOpen}
           onClose={closeMenu}
+          onOpened={handleMenuOpened}
           onClosed={handleMenuClosed}
-          origin={menuOrigin}
         />
       </div>
     </header>

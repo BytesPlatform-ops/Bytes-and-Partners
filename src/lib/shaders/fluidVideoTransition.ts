@@ -97,6 +97,7 @@ uniform float uEnvelope;
 uniform float uTime;
 uniform float uStrength;
 uniform float uRadius;           // corner radius, CSS px
+uniform float uTintAmount;       // blue wash: strong on card, clear when grown
 uniform float uDebug;            // 0 normal · 1 undistorted · 2 distortion map
 
 varying vec2  vUv;
@@ -131,6 +132,7 @@ void main() {
   // the bias keeps full-resolution sampling there, while the card — shown
   // ~2× smaller than the source — still gets enough mip to not shimmer
   vec3 color = texture2D(uTexture, tuv, -0.5).rgb;
+  color = mix(color, vec3(0.18, 0.24, 1.0), uTintAmount);
 
   // ---- rounded corners, antialiased to one pixel
   vec2 p = (uv - 0.5) * uResolution;
