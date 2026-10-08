@@ -23,7 +23,7 @@ import { createRootCardsScene } from "@/lib/work/rootCardsScene";
 
 gsap.registerPlugin(ScrollTrigger);
 
-const WORK_SCROLL_LENGTH = "+=500%";
+const WORK_SCROLL_LENGTH = "+=300%";
 
 const responsive = (width: number) => width < 768
   ? { strength: 0.6, duration: 1.3 }

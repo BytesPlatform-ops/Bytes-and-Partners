@@ -151,13 +151,19 @@ const SCROLL_KEYS = new Set([" ", "PageUp", "PageDown", "Home", "End", "ArrowUp"
  * Deliberately NOT overflow: hidden — hiding the scrollbar would reflow the
  * page by its width and visibly jump the layout.
  */
-export function lockScroll({ allowProgrammatic = false } = {}): () => void {
+export function lockScroll({ allowProgrammatic = false, allowWithin }: {
+  allowProgrammatic?: boolean;
+  /** Let a modal scroll while the page and Lenis remain frozen. */
+  allowWithin?: HTMLElement;
+} = {}): () => void {
   const y = window.scrollY;
   activeLenis?.stop();
   const block = (e: Event) => {
+    if (allowWithin && e.target instanceof Node && allowWithin.contains(e.target)) return;
     if (e.cancelable) e.preventDefault();
   };
   const blockKeys = (e: KeyboardEvent) => {
+    if (allowWithin && e.target instanceof Node && allowWithin.contains(e.target)) return;
     if (SCROLL_KEYS.has(e.key)) e.preventDefault();
   };
   const hold = () => {

@@ -1,6 +1,10 @@
 
 import * as THREE from 'three';
+import gsap from 'gsap';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { lockScroll } from '@/lib/animation/scroll';
+import { createCardPortal } from './cardPortal';
+import { projects } from '@/data/projects';
 
 /**
  * Embedded version of shader-learning; the section owns scrolling and frames.
@@ -24,12 +28,12 @@ const CAMERA_OPEN_FOV = 52;
 const CAMERA_FOV_TRANSITION_SPEED = 5;
 
 const CAMERA_START_Y = 8.9;
-// Stop on the twelfth and final card. The previous -7.2 endpoint continued
-// well below the collection after Future Interfaces had already passed.
-const CAMERA_END_Y = -0.55;
+// Stop on the seventh and final card: its Y (FIRST_CARD_Y - 6 * CARD_Y_GAP)
+// and orbit angle, offset like the first card is from the camera start.
+const CAMERA_END_Y = 3.75;
 
 const CAMERA_START_ANGLE = 0.25;
-const CAMERA_END_ANGLE = 6.74;
+const CAMERA_END_ANGLE = 3.79;
 
 const CAMERA_BASE_RADIUS = 12;
 
@@ -38,7 +42,7 @@ const CAMERA_BASE_RADIUS = 12;
 // CARD CONFIG
 // ======================================================
 
-const CARD_COUNT = 12;
+const CARD_COUNT = projects.length;
 
 const CARD_DISTANCE = 8.0;
 const CARD_HOVER_LIFT = 0.32;
@@ -95,7 +99,7 @@ const GLASS_BRIGHTNESS = 0.95;
 const GLASS_SCENE_MIX = 0.18;
 const GLASS_SCENE_BRIGHTNESS = 0.28;
 const INACTIVE_SCENE_MIX = 0.46;
-const VIDEO_TRANSITION_SECONDS = 0.55;
+const IMAGE_TRANSITION_SECONDS = 0.55;
 const GLASS_BLUR = 3.5; // Screen pixels at full drawing-buffer resolution.
 const GLASS_LIQUID = 0.024;
 const GLASS_FLOW_SPEED = 0.22;
@@ -104,25 +108,16 @@ const CARD_SKEW = -0.04; // Local Y shear; card centers and orbit stay fixed.
 
 
 // ======================================================
-// VIDEO CONFIG
+// IMAGE CONFIG
 // ======================================================
 
-const VIDEO_OPACITY = 0.72; // Video contribution over the glass, from 0 to 1.
+const IMAGE_OPACITY = 0.35; // Image contribution over the glass, from 0 to 1.
 
-const VIDEO_SOURCES = [
-  '/videos/project-01.mp4', // Card 01
-  '/videos/project-01.mp4', // Card 02
-  '/videos/project-01.mp4', // Card 03
-  '/videos/project-01.mp4', // Card 04
-  '/videos/project-01.mp4', // Card 05
-  '/videos/project-01.mp4', // Card 06
-  '/videos/project-01.mp4', // Card 07
-  '/videos/project-01.mp4', // Card 08
-  '/videos/project-01.mp4', // Card 09
-  '/videos/project-01.mp4', // Card 10
-  '/videos/project-01.mp4', // Card 11
-  '/videos/project-01.mp4', // Card 12
-];
+// One landscape cover per project: device-first projects (phone/tablet
+// screens) use their first web shot, browser projects their hero shot.
+const PROJECT_COVERS = projects.map(project =>
+  (project.media === 'device' && project.extra?.[0]) || project.shots[0]
+);
 
 
 // ======================================================
@@ -145,20 +140,10 @@ const ORBIT_RING_COUNT = 22;
 const ORBIT_RING_RADIUS = 6.2;
 const ORBIT_BEADS_PER_RING = 42;
 
-const CARD_TITLES = [
-  'DIGITAL\nEXPERIENCES',
-  'CREATIVE\nTECHNOLOGY',
-  'INTERACTIVE\nDESIGN',
-  'WEBGL\nEXPERIMENTS',
-  'IMMERSIVE\nWORLDS',
-  'MOTION\nSYSTEMS',
-  'AI\nEXPERIENCES',
-  'DIGITAL\nPRODUCTS',
-  'BRAND\nSYSTEMS',
-  '3D\nENVIRONMENTS',
-  'GENERATIVE\nDESIGN',
-  'FUTURE\nINTERFACES'
-];
+// Project names on two lines, broken at the last space.
+const CARD_TITLES = projects.map(project =>
+  project.name.toUpperCase().replace(/ (?=[^ ]*$)/, '\n')
+);
 
 
 // ======================================================
@@ -217,6 +202,8 @@ const renderer = sharedRenderer ?? new THREE.WebGLRenderer({
     antialias: true,
     alpha: true
   });
+
+const portal = createCardPortal(renderer);
 
 if (ownsRenderer) {
   renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -573,131 +560,41 @@ function resizeGlassTarget() {
 resizeGlassTarget();
 
 // ======================================================
-// VIDEO CREATOR
+// IMAGE CREATOR
 // ======================================================
 
-function createVideoTexture(
-  source
-) {
+const imageLoader = new THREE.TextureLoader();
+const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
 
-  const video =
-    document.createElement(
-      'video'
-    );
-
-
-  video.src =
-    source;
-
-
-  video.loop =
-    true;
-
-
-  video.muted =
-    true;
-
-
-  video.playsInline =
-    true;
-
-
-  video.autoplay =
-    false; // Playback is owned by the current-card controller.
-
-
-  video.preload =
-    'auto';
-
-
-  video.crossOrigin =
-    'anonymous';
-
-
-  video.setAttribute(
-    'webkit-playsinline',
-    ''
-  );
-
-
-  const texture =
-    new THREE.VideoTexture(
-      video
-    );
-
-
-  texture.colorSpace =
-    THREE.SRGBColorSpace;
-
-
-  texture.minFilter =
-    THREE.LinearFilter;
-
-
-  texture.magFilter =
-    THREE.LinearFilter;
-
-
-  texture.generateMipmaps =
-    false;
-
-
-  // cover-type cropping
-  texture.wrapS =
-    THREE.ClampToEdgeWrapping;
-
-  texture.wrapT =
-    THREE.ClampToEdgeWrapping;
-
-
-  const tryPlay = () => {
-    if (disposed || suspended || video.dataset.active !== 'true' || video.error) return;
-    const promise =
-      video.play();
-
-    if (promise) {
-      promise.catch(() => {});
-    }
-  };
-
-
-  listen(video, 
-    'canplay',
-    tryPlay,
-    {
-      once: true
-    }
-  );
-
-
-  // browser interaction fallback
-  listen(window, 
-    'pointerdown',
-    tryPlay,
-    {
-      once: true
-    }
-  );
-
-
-  return {
-    video,
-    texture
-  };
+// `ready` and `aspect` stay on the media record so the card and portal
+// shaders can fall back to tinted glass and cover-fit once it loads.
+function createImageTexture(source) {
+  const media = { ready: false, aspect: 16 / 9, texture: null };
+  media.texture = imageLoader.load(source, texture => {
+    if (disposed) return;
+    media.aspect = texture.image.width / texture.image.height;
+    media.ready = true;
+  });
+  // Image textures use an sRGB internal format, so samples arrive linear.
+  media.texture.colorSpace = THREE.SRGBColorSpace;
+  media.texture.anisotropy = Math.min(8, maxAnisotropy);
+  media.texture.wrapS = THREE.ClampToEdgeWrapping;
+  media.texture.wrapT = THREE.ClampToEdgeWrapping;
+  return media;
 }
 
 
 // ======================================================
-// SINGLE GLASS + VIDEO MATERIAL
+// SINGLE GLASS + IMAGE MATERIAL
 // ======================================================
 
-function createGlassVideoMaterial(
-  videoTexture
+function createGlassImageMaterial(
+  imageTexture
 ) {
 
   return new THREE.ShaderMaterial({
     uniforms: {
-      uVideo: { value: videoTexture },
+      uImage: { value: imageTexture },
       uScene: { value: glassSceneTarget.texture },
       uSceneDepth: { value: glassSceneTarget.depthTexture },
       uViewport: { value: glassViewport },
@@ -708,9 +605,10 @@ function createGlassVideoMaterial(
       uLiquid: { value: GLASS_LIQUID },
       uFlowSpeed: { value: GLASS_FLOW_SPEED },
       uRimWidth: { value: GLASS_RIM_WIDTH },
-      uVideoReady: { value: 0 },
-      uVideoBlend: { value: 0 },
-      uVideoOpacity: { value: VIDEO_OPACITY },
+      uImageReady: { value: 0 },
+      uImageBlend: { value: 0 },
+      uImageOpacity: { value: IMAGE_OPACITY },
+      uImageAspect: { value: 16 / 9 },
       uHover: { value: 0 },
       uPointer: { value: new THREE.Vector2(0.5, 0.5) },
       uTime: { value: 0 },
@@ -744,7 +642,7 @@ function createGlassVideoMaterial(
     `,
     fragmentShader: `
       varying float vCardFace;
-      uniform sampler2D uVideo;
+      uniform sampler2D uImage;
       uniform sampler2D uScene;
       uniform sampler2D uSceneDepth;
       uniform vec2 uViewport;
@@ -755,9 +653,10 @@ function createGlassVideoMaterial(
       uniform float uLiquid;
       uniform float uFlowSpeed;
       uniform float uRimWidth;
-      uniform float uVideoReady;
-      uniform float uVideoBlend;
-      uniform float uVideoOpacity;
+      uniform float uImageReady;
+      uniform float uImageBlend;
+      uniform float uImageOpacity;
+      uniform float uImageAspect;
       uniform float uHover;
       uniform vec2 uPointer;
       uniform float uTime;
@@ -834,7 +733,10 @@ function createGlassVideoMaterial(
           sin(vUv.y * 5.0 + uTime * 0.24),
           cos(vUv.x * 4.0 - uTime * 0.19)
         );
-        vec2 videoUv = vUv + warp * uDistortionStrength;
+        // Cover-fit the project image to the card, cropping the long axis.
+        float cardAspect = uResolution.x / uResolution.y;
+        vec2 cover = cardAspect > uImageAspect ? vec2(1.0, uImageAspect / cardAspect) : vec2(cardAspect / uImageAspect, 1.0);
+        vec2 imageUv = (vUv - 0.5) * cover + 0.5 + warp * uDistortionStrength;
         vec2 chromaticOffset = (vUv - 0.5) * uChromaticStrength;
         // A visible glass tint remains while media loads or if a file is missing.
         float flowTime = uTime * uFlowSpeed;
@@ -849,16 +751,15 @@ function createGlassVideoMaterial(
           smoothstep(0.25, 0.72, clouds));
         color += vec3(0.025, 0.035, 0.05) * veins;
         color += vec3(0.025, 0.055, 0.065) * caustic;
-        // Back-facing glass never samples video, including during a handoff.
-        float videoBlend = vCardFace > 0.999 ? smoothstep(0.0, 1.0, uVideoBlend) * clamp(uVideoOpacity, 0.0, 1.0) : 0.0;
-        if (uVideoReady > 0.5 && videoBlend > 0.001) {
-          vec3 videoColor = vec3(
-            texture2D(uVideo, clamp(videoUv + chromaticOffset, 0.0, 1.0)).r,
-            texture2D(uVideo, clamp(videoUv, 0.0, 1.0)).g,
-            texture2D(uVideo, clamp(videoUv - chromaticOffset, 0.0, 1.0)).b
+        // Back-facing glass never samples the image, including during a handoff.
+        float imageBlend = vCardFace > 0.999 ? smoothstep(0.0, 1.0, uImageBlend) * clamp(uImageOpacity, 0.0, 1.0) : 0.0;
+        if (uImageReady > 0.5 && imageBlend > 0.001) {
+          vec3 imageColor = vec3(
+            texture2D(uImage, clamp(imageUv + chromaticOffset, 0.0, 1.0)).r,
+            texture2D(uImage, clamp(imageUv, 0.0, 1.0)).g,
+            texture2D(uImage, clamp(imageUv - chromaticOffset, 0.0, 1.0)).b
           );
-          // VideoTexture sRGB samples need explicit decoding in ShaderMaterial.
-          color = mix(color, sRGBTransferEOTF(vec4(videoColor, 1.0)).rgb, videoBlend);
+          color = mix(color, imageColor, imageBlend);
         }
         float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
         color = mix(vec3(luminance), color, uSaturation);
@@ -877,7 +778,7 @@ function createGlassVideoMaterial(
         bentUv += normalize(p + vec2(0.0001)) * bevel * uRimWidth * 0.15;
         vec3 behindGlass = blurredScene(bentUv, screenUv);
         behindGlass *= vec3(0.88, 0.94, 1.0) * uSceneBrightness;
-        color = mix(color, behindGlass, mix(uInactiveSceneMix, uSceneMix, videoBlend));
+        color = mix(color, behindGlass, mix(uInactiveSceneMix, uSceneMix, imageBlend));
 
         float fresnel = pow(1.0 - clamp(abs(dot(normalize(vNormal), normalize(vViewDirection))), 0.0, 1.0), 3.0);
         float edge = exp(-max(-distanceToEdge, 0.0) / 0.065);
@@ -909,7 +810,7 @@ function createGlassVideoMaterial(
         #include <colorspace_fragment>
       }
     `,
-    // The closed slab has outward-facing rear/side geometry. No mirrored video.
+    // The closed slab has outward-facing rear/side geometry. No mirrored image.
     side: THREE.FrontSide,
     // See-through color comes from the scene capture; depth writes keep the
     // slab's front, bevel and rear from blending over one another.
@@ -1106,7 +1007,7 @@ function createCardText(
       }
       void main() {
         float facing = max(dot(normalize(vNormal), normalize(vView)), 0.0);
-        // Visibility belongs to each title, not to the active video selection.
+        // Visibility belongs to each title, not to the active image selection.
         float angleAway = 1.0 - smoothstep(0.12, 0.92, facing);
         float distanceAway = smoothstep(9.0, 17.0, length(vView));
         float away = max(angleAway, distanceAway);
@@ -1205,11 +1106,11 @@ const cardData =
           CARD_TITLES.length
         ],
 
-      video:
-        VIDEO_SOURCES[
+      image:
+        PROJECT_COVERS[
           index %
-          VIDEO_SOURCES.length
-        ]
+          PROJECT_COVERS.length
+        ].src
 
     })
   );
@@ -1259,16 +1160,16 @@ cardData.forEach(
 
 
     // ==================================================
-    // VIDEO
+    // IMAGE
     // ==================================================
 
-    const {
-      video,
-      texture
-    } =
-      createVideoTexture(
-        data.video
+    const media =
+      createImageTexture(
+        data.image
       );
+
+    const texture =
+      media.texture;
 
 
     // ==================================================
@@ -1276,7 +1177,7 @@ cardData.forEach(
     // ==================================================
 
     const material =
-      createGlassVideoMaterial(
+      createGlassImageMaterial(
         texture
       );
 
@@ -1353,7 +1254,7 @@ cardData.forEach(
 
       textLayer,
 
-      video,
+      media,
 
       texture,
 
@@ -1481,11 +1382,11 @@ function updateCards(
       item.card.rotation.y = CARD_YAW - (localPointer.x - 0.5) * CARD_HOVER_TILT * hoverMotion;
       item.material.uniforms.uTime.value = elapsed;
       item.textLayer.material.uniforms.uTime.value = elapsed;
-      item.material.uniforms.uVideoReady.value =
-        !item.video.error && item.video.readyState >= 2 ? 1 : 0;
-      const target = item === activeCard && item.material.uniforms.uVideoReady.value ? 1 : 0;
-      item.material.uniforms.uVideoBlend.value = THREE.MathUtils.clamp(
-        item.material.uniforms.uVideoBlend.value + (target ? 1 : -1) * delta / VIDEO_TRANSITION_SECONDS,
+      item.material.uniforms.uImageReady.value = item.media.ready ? 1 : 0;
+      item.material.uniforms.uImageAspect.value = item.media.aspect;
+      const target = item === activeCard && item.material.uniforms.uImageReady.value ? 1 : 0;
+      item.material.uniforms.uImageBlend.value = THREE.MathUtils.clamp(
+        item.material.uniforms.uImageBlend.value + (target ? 1 : -1) * delta / IMAGE_TRANSITION_SECONDS,
         0, 1
       );
 
@@ -1525,7 +1426,7 @@ const viewProjection = new THREE.Matrix4();
 const cardFrustum = new THREE.Frustum();
 
 function updateActiveCard() {
-  if (caseStudy.open) return;
+  if (caseStudy.open || caseBusy) return;
   scene.updateMatrixWorld(true);
   viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
   cardFrustum.setFromProjectionMatrix(viewProjection);
@@ -1549,17 +1450,7 @@ function updateActiveCard() {
   }
   // A small margin keeps subtle motion from rapidly toggling neighboring cards.
   if (currentScore > 0 && bestScore < currentScore * 1.15) nextCard = activeCard;
-  if (nextCard === activeCard) return;
-  if (activeCard) {
-    activeCard.video.dataset.active = 'false';
-    activeCard.video.pause();
-    // Keep its last decoded frame while the outgoing shader fades to glass.
-  }
   activeCard = nextCard;
-  if (activeCard) {
-    activeCard.video.dataset.active = 'true';
-    if (!activeCard.video.error) activeCard.video.play().catch(() => {});
-  }
 }
 
 // Measure focus using camera-space angles, independent of the animated FOV.
@@ -1604,19 +1495,22 @@ function resize(width, height) {
     renderer.setSize(width, height, false);
   }
   resizeGlassTarget();
+  portal.resize();
 }
 
-// Mock content stays separate from rendering so real case studies can replace it.
-const CASE_STUDIES = CARD_TITLES.map((title, index) => ({
-  title: title.replace('\n', ' '),
-  client: ['Forma Studio', 'Northstar Labs', 'Fieldwork Collective'][index % 3],
-  discipline: ['Digital experience · Creative development', 'Interactive storytelling · WebGL', 'Art direction · Motion design'][index % 3],
-  year: '2026',
-  intro: 'A new perspective on the everyday.',
-  overview: 'An exploratory digital experience that turns a familiar story into a world worth spending time in. Moving image, responsive materials, and considered typography create a continuous journey from curiosity to discovery.',
-  challenge: 'Make a complex story feel immediate. We needed a way to invite exploration while keeping the essential information clear, accessible, and easy to navigate.',
-  approach: 'We built the experience around a simple rhythm: discover, explore, and understand. A spatial interface provides the first invitation, then gives way to a focused editorial story with room for the work to speak.',
-  outcome: 'The concept brings film, interaction, and storytelling into one coherent experience. This prototype demonstrates the journey; launch outcomes will be added with the final case study.'
+// Case study copy comes straight from the shared project data.
+const CASE_STUDIES = projects.map((project, index) => ({
+  title: project.name,
+  client: project.client,
+  category: project.category,
+  discipline: project.discipline.join(' · '),
+  year: project.year,
+  intro: project.headline,
+  overview: project.summary,
+  challenge: project.problem,
+  approach: project.solution,
+  outcome: project.outcome.join(' '),
+  caption: PROJECT_COVERS[index].caption
 }));
 const caseStudy = document.createElement('dialog');
 caseStudy.className = 'work-case-study';
@@ -1624,85 +1518,127 @@ caseStudy.setAttribute('data-lenis-prevent', '');
 caseStudy.setAttribute('aria-labelledby', 'case-title');
 caseStudy.innerHTML = `<button class="case-close" aria-label="Close case study">← Back to projects <span>ESC</span></button>
   <article class="case-content">
-    <header class="case-header"><p class="case-eyebrow">Selected work / <span data-case="year"></span> · Concept study</p>
-    <h1 id="case-title" data-case="title"></h1><p data-case="discipline"></p></header>
-    <div class="case-hero"><video muted loop playsinline controls preload="metadata"></video><span class="case-caption">An exploration in motion</span></div>
-    <section class="case-overview"><div><p class="case-eyebrow">The project</p><h2 data-case="intro"></h2></div><div><p data-case="overview"></p><dl><dt>Client</dt><dd data-case="client"></dd><dt>Scope</dt><dd data-case="discipline"></dd></dl></div></section>
+    <div class="case-stage"><header class="case-header"><p class="case-eyebrow">Selected work / <span data-case="year"></span> · <span data-case="category"></span></p>
+    <h1 id="case-title" data-case="title"></h1><p data-case="discipline"></p><p class="case-hint">Scroll up to return to projects</p></header>
+    <div class="case-hero"><img alt="" decoding="async"><span class="case-caption" data-case="caption"></span></div></div>
+    <div class="case-details"><section class="case-overview"><div><p class="case-eyebrow">The project</p><h2 data-case="intro"></h2></div><div><p data-case="overview"></p><dl><dt>Client</dt><dd data-case="client"></dd><dt>Scope</dt><dd data-case="discipline"></dd></dl></div></section>
     <section class="case-chapters"><div><span>01 / Challenge</span><h2>Clarity through discovery.</h2><p data-case="challenge"></p></div><div><span>02 / Approach</span><h2>Built to be explored.</h2><p data-case="approach"></p></div><div><span>03 / Outcome</span><h2>A connected experience.</h2><p data-case="outcome"></p></div></section>
-    <footer class="case-footer"><p>Every detail is part of the story.</p><button class="case-return">Return to the collection ↗</button></footer>
+    <footer class="case-footer"><p>Every detail is part of the story.</p><button class="case-return">Return to the collection ↗</button></footer></div>
   </article>`;
 document.body.appendChild(caseStudy);
 const caseHero = caseStudy.querySelector('.case-hero');
-const caseVideo = caseStudy.querySelector('video');
+const caseImage = caseStudy.querySelector('.case-hero img');
 let caseBusy = false;
-let caseOrigin = null;
-let savedBodyOverflow = '';
 let savedFocus = null;
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-function cardScreenRect(item) {
-  const points = [];
-  for (const x of [-CARD_WIDTH / 2, CARD_WIDTH / 2]) for (const y of [-CARD_HEIGHT / 2, CARD_HEIGHT / 2]) {
-    const p = item.card.localToWorld(new THREE.Vector3(x, y + x * CARD_SKEW, 0)).project(camera);
-    const rect = canvas.getBoundingClientRect();
-    points.push({ x: rect.left + (p.x + 1) * rect.width / 2, y: rect.top + (1 - p.y) * rect.height / 2 });
-  }
-  const left = Math.min(...points.map(p => p.x)), top = Math.min(...points.map(p => p.y));
-  return { left, top, width: Math.max(...points.map(p => p.x)) - left, height: Math.max(...points.map(p => p.y)) - top };
+const flight = { progress: 0 };
+let flightTween = null;
+let releaseFlightScroll = null;
+let flightItem = null;
+const flightFrom = new THREE.Vector3();
+const flightTo = new THREE.Vector3();
+const flightRotationFrom = new THREE.Quaternion();
+let flightFov = CAMERA_FOV;
+let flightDistance = 2.05;
+let closeRequested = false;
+
+function aimFlight(item) {
+  scene.updateMatrixWorld(true);
+  flightFrom.copy(camera.position);
+  flightRotationFrom.copy(camera.quaternion);
+  flightFov = camera.fov;
+  const center = item.card.getWorldPosition(new THREE.Vector3());
+  // Translate in the current camera frame. Keep its heading and roll:
+  // moving to the card's normal would flatten the angled view of the slab.
+  const backward = new THREE.Vector3(0, 0, 1).applyQuaternion(flightRotationFrom);
+  const depth = center.clone().sub(flightFrom).dot(backward) * -1;
+  // The reference enlarges the card roughly 1.7x while shifting it into
+  // view. Retain more distance on narrow screens to keep it readable.
+  const portraitDistance = CARD_WIDTH / (2 * Math.tan(THREE.MathUtils.degToRad(flightFov / 2)) * camera.aspect * 1.15);
+  flightDistance = Math.min(depth, Math.max(depth * .58, portraitDistance));
+  flightTo.copy(center).addScaledVector(backward, flightDistance);
 }
-function heroOriginTransform() {
-  const rect = caseHero.getBoundingClientRect();
-  return `translate(${caseOrigin.left - rect.left}px, ${caseOrigin.top - rect.top}px) scale(${caseOrigin.width / rect.width}, ${caseOrigin.height / rect.height})`;
+function updateFlightCamera() {
+  const approach = THREE.MathUtils.smoothstep(flight.progress, 0, .7);
+  // Interpolating distance exponentially gives a steady perceived approach.
+  const distance = flightFrom.distanceTo(flightTo);
+  const ratio = flightDistance / (distance + flightDistance);
+  const dolly = (1 - Math.pow(ratio, approach)) / Math.max(1 - ratio, .001);
+  camera.position.lerpVectors(flightFrom, flightTo, dolly);
+  camera.quaternion.copy(flightRotationFrom);
+  camera.fov = flightFov;
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
 }
-async function openCaseStudy(item) {
-  if (caseBusy || caseStudy.open || item !== activeCard) return;
+function syncCaseReveal() {
+  const reveal = THREE.MathUtils.smoothstep(flight.progress, .88, 1);
+  caseStudy.style.setProperty('--case-reveal', String(reveal));
+  caseStudy.dataset.transitioning = String(caseBusy);
+}
+function playFlight(forward, complete) {
+  flightTween?.kill();
+  flightTween = gsap.to(flight, {
+    progress: forward ? 1 : 0,
+    duration: reducedMotion.matches ? 0 : forward ? .75 : .75,
+    ease: 'none',
+    onUpdate: syncCaseReveal,
+    onComplete: () => {
+      if (disposed) return;
+      complete();
+      syncCaseReveal();
+      portal.release();
+    },
+  });
+}
+function openCaseStudy(item) {
+  if (caseBusy || caseStudy.open || !item || item !== activeCard) return;
   caseBusy = true;
-  caseOrigin = cardScreenRect(item);
+  closeRequested = false;
+  flightItem = item;
+  aimFlight(item);
+  flight.progress = 0;
   savedFocus = document.activeElement;
-  savedBodyOverflow = document.body.style.overflow;
-  document.body.style.overflow = 'hidden';
+  releaseFlightScroll = lockScroll({ allowWithin: caseStudy });
   const data = CASE_STUDIES[item.index];
   caseStudy.querySelectorAll('[data-case]').forEach(el => { el.textContent = data[el.dataset.case]; });
-  caseVideo.src = VIDEO_SOURCES[item.index];
-  listen(caseVideo, 'loadedmetadata', () => { caseVideo.currentTime = item.video.currentTime; }, { once: true });
-  item.video.pause();
+  caseImage.src = PROJECT_COVERS[item.index].src;
+  caseImage.alt = `${data.title} — ${data.caption}`;
+  syncCaseReveal();
   caseStudy.showModal();
   caseStudy.scrollTop = 0;
   renderer.domElement.style.cursor = '';
-  canvas.classList.add('work-case-open');
-caseStudy.classList.add('work-case-open');
-  caseVideo.play().catch(() => {});
-  const duration = reducedMotion.matches ? 0 : 850;
-  await caseHero.animate([
-    { transform: heroOriginTransform(), filter: 'blur(5px)', opacity: 0.65 },
-    { transform: 'none', filter: 'blur(0)', opacity: 1 }
-  ], { duration, easing: 'cubic-bezier(.18,.75,.2,1)' }).finished.catch(() => {});
-  if (disposed) return;
-  caseBusy = false;
-  caseStudy.querySelector('.case-close').focus();
+  playFlight(true, () => {
+    caseBusy = false;
+    caseStudy.querySelector('.case-close').focus({ preventScroll: true });
+    if (closeRequested) closeCaseStudy();
+  });
 }
-async function closeCaseStudy() {
-  if (caseBusy || !caseStudy.open) return;
+function closeCaseStudy() {
+  if (!caseStudy.open) return;
+  if (caseBusy) { closeRequested = true; return; }
   caseBusy = true;
   caseStudy.scrollTo({ top: 0, behavior: 'instant' });
-  canvas.classList.remove('work-case-open');
-caseStudy.classList.remove('work-case-open');
-  await caseHero.animate([{ transform: 'none', opacity: 1 },
-    { transform: heroOriginTransform(), opacity: 0, filter: 'blur(5px)' }
-  ], { duration: reducedMotion.matches ? 0 : 550, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'forwards' }).finished.catch(() => {});
-  if (disposed) return;
-  caseStudy.close();
-  caseHero.getAnimations().forEach(animation => animation.cancel());
-  caseVideo.pause();
-  caseVideo.removeAttribute('src');
-  caseVideo.load();
-  document.body.style.overflow = savedBodyOverflow;
-  if (activeCard) activeCard.video.play().catch(() => {});
-  savedFocus?.focus({ preventScroll: true });
-  caseBusy = false;
+  syncCaseReveal();
+  playFlight(false, () => {
+    camera.position.copy(flightFrom);
+    camera.quaternion.copy(flightRotationFrom);
+    camera.fov = flightFov;
+    camera.updateProjectionMatrix();
+    caseStudy.close();
+    caseImage.removeAttribute('src');
+    releaseFlightScroll?.();
+    releaseFlightScroll = null;
+    savedFocus?.focus({ preventScroll: true });
+    flightItem = null;
+    caseBusy = false;
+  });
 }
 listen(caseStudy.querySelector('.case-close'), 'click', closeCaseStudy);
 listen(caseStudy.querySelector('.case-return'), 'click', closeCaseStudy);
 listen(caseStudy, 'cancel', event => { event.preventDefault(); closeCaseStudy(); });
+listen(caseStudy, 'wheel', event => {
+  if (!caseBusy && caseStudy.scrollTop <= 1 && event.deltaY < -18) closeCaseStudy();
+}, { passive: true });
 renderer.domElement.tabIndex = 0;
 renderer.domElement.setAttribute('role', 'button');
 renderer.domElement.setAttribute('aria-label', 'Open current project case study');
@@ -1714,7 +1650,7 @@ listen(renderer.domElement, 'click', event => {
   const rect = canvas.getBoundingClientRect();
   hoverPointer.set((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2);
   updateHover();
-  if (hoveredCard === activeCard && activeCard) openCaseStudy(activeCard);
+  if (hoveredCard && hoveredCard === activeCard) openCaseStudy(activeCard);
 });
 listen(renderer.domElement, 'keydown', event => {
   if (suspended) return;
@@ -1732,7 +1668,7 @@ function updateHover() {
   const hit = hoverRay.intersectObjects(cardPivots.map(item => item.card), false)[0];
   hoveredCard = hit ? cardPivots.find(item => item.card === hit.object) : null;
   if (hit?.uv) hoverUv.copy(hit.uv);
-  renderer.domElement.style.cursor = hoveredCard ? 'pointer' : '';
+  renderer.domElement.style.cursor = hoveredCard && hoveredCard === activeCard ? 'pointer' : '';
 }
 listen(renderer.domElement, 'pointermove', event => {
   const rect = canvas.getBoundingClientRect();
@@ -1765,16 +1701,20 @@ function animate() {
     clock.getElapsedTime();
 
 
-  updateCamera();
-
-  updateCards(
-    elapsed
-  );
+  if (caseStudy.open) {
+    updateFlightCamera();
+    // Freeze the orbit/slabs during the flight; only the camera advances.
+    previousCardTime = elapsed;
+    previousFovTime = elapsed;
+  } else {
+    updateCamera();
+    updateCards(elapsed);
+    updateActiveCard();
+    updateCameraFov(elapsed);
+  }
 
 
   updateSurroundings(elapsed);
-  updateActiveCard();
-  updateCameraFov(elapsed);
   updateHover();
 
   const toneMapping = renderer.toneMapping;
@@ -1791,12 +1731,28 @@ function animate() {
   renderer.setRenderTarget(glassSceneTarget);
   renderer.clear();
   renderer.render(scene, camera);
-  renderer.setRenderTarget(null);
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  cardsGroup.visible = true;
+  renderer.setRenderTarget(caseStudy.open && caseBusy ? portal.captureTarget() : null);
+  renderer.toneMapping = caseStudy.open && caseBusy ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
+  cardsGroup.visible = !caseStudy.open || caseBusy;
 
   renderer.clear();
   renderer.render(scene, camera);
+
+  if (caseStudy.open && caseBusy && flightItem) {
+    // Capture the destination backdrop separately from the bending
+    // collection. The player is composited behind that foreground.
+    cardsGroup.visible = false;
+    renderer.toneMapping = THREE.NoToneMapping;
+    renderer.setRenderTarget(portal.behindTarget());
+    renderer.clear();
+    renderer.render(scene, camera);
+    cardsGroup.visible = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.setRenderTarget(null);
+    renderer.clear();
+    portal.render(flight.progress, flightItem.texture, flightItem.media, caseHero.getBoundingClientRect(), canvas.getBoundingClientRect());
+  }
+  cardsGroup.visible = true;
 
   renderer.toneMapping = toneMapping;
   renderer.toneMappingExposure = toneMappingExposure;
@@ -1820,24 +1776,20 @@ return {
       renderer.domElement.removeAttribute('role');
       renderer.domElement.removeAttribute('aria-label');
     }
-    if (!visible) cardPivots.forEach(item => item.video.pause());
-    else if (activeCard && !caseStudy.open) activeCard.video.play().catch(() => {});
   },
   dispose() {
     disposed = true;
     events.abort();
-    if (caseStudy.open) document.body.style.overflow = savedBodyOverflow;
+    flightTween?.kill();
+    releaseFlightScroll?.();
+    portal.dispose();
     caseHero.getAnimations().forEach(animation => animation.cancel());
     caseStudy.close();
     caseStudy.remove();
     canvas.classList.remove('work-case-open');
     if (ownsRenderer) canvas.classList.remove('webgl');
     canvas.style.cursor = '';
-    for (const video of [...cardPivots.map(item => item.video), caseVideo]) {
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
-    }
+    caseImage.removeAttribute('src');
     const resources = new Set();
     scene.traverse(object => {
       if (object.isInstancedMesh) resources.add(object);
