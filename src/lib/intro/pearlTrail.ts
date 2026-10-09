@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-// Independent studio fluid state. All passes use the intro's renderer and tick.
+// Shared intro fluid state. All passes use the intro's renderer and tick.
 export function createPearlTrail(renderer: THREE.WebGLRenderer, backdrop: THREE.Texture) {
   const vertexShader = `varying vec2 vUv; void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}`;
   const geometry = new THREE.PlaneGeometry(2, 2);
@@ -128,7 +128,9 @@ export function createPearlTrail(renderer: THREE.WebGLRenderer, backdrop: THREE.
       display.uniforms.uDensity.value=density.read.texture;
       renderer.setRenderTarget(oldTarget);renderer.autoClear=oldAutoClear;
     },
-    render() { if(supported && idle<1.8){quad.material=display;renderer.render(scene,camera);} },
+    render() {
+      if(supported && idle<1.8){quad.material=display;renderer.render(scene,camera);}
+    },
     dispose() { targets.forEach(t=>t.dispose());materials.forEach(m=>m.dispose());geometry.dispose(); },
   };
 }

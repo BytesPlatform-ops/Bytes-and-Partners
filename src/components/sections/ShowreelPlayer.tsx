@@ -129,7 +129,7 @@ export default function ShowreelPlayer({ open, initialPointer, onClose }: Showre
       style={playerStyle}
       role="dialog"
       aria-modal="true"
-      aria-label="Bytes and Partners showreel"
+      aria-label="BytesPlatform showreel"
       aria-hidden={!open}
       onClick={onClose}
       onPointerMove={(event) => {

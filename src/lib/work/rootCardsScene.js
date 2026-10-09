@@ -2,9 +2,15 @@
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { lockScroll } from '@/lib/animation/scroll';
+import { lockScroll, jumpTo } from '@/lib/animation/scroll';
 import { createCardPortal } from './cardPortal';
+import { createCaseGallery } from './caseGallery';
+import { createCasePalette } from './casePalette';
+import { createCardCursor } from './cardCursor';
 import { projects } from '@/data/projects';
+
+// Enable to restore the camera transition and internal case studies.
+const CASE_STUDIES_ENABLED = false;
 
 /**
  * Embedded version of shader-learning; the section owns scrolling and frames.
@@ -111,7 +117,7 @@ const CARD_SKEW = -0.04; // Local Y shear; card centers and orbit stay fixed.
 // IMAGE CONFIG
 // ======================================================
 
-const IMAGE_OPACITY = 0.35; // Image contribution over the glass, from 0 to 1.
+const IMAGE_OPACITY = 0.3; // Image contribution over the glass, from 0 to 1.
 
 // One landscape cover per project: device-first projects (phone/tablet
 // screens) use their first web shot, browser projects their hero shot.
@@ -1501,30 +1507,25 @@ function resize(width, height) {
 // Case study copy comes straight from the shared project data.
 const CASE_STUDIES = projects.map((project, index) => ({
   title: project.name,
-  client: project.client,
-  category: project.category,
-  discipline: project.discipline.join(' · '),
-  year: project.year,
-  intro: project.headline,
   overview: project.summary,
-  challenge: project.problem,
   approach: project.solution,
-  outcome: project.outcome.join(' '),
   caption: PROJECT_COVERS[index].caption
 }));
 const caseStudy = document.createElement('dialog');
 caseStudy.className = 'work-case-study';
 caseStudy.setAttribute('data-lenis-prevent', '');
 caseStudy.setAttribute('aria-labelledby', 'case-title');
-caseStudy.innerHTML = `<button class="case-close" aria-label="Close case study">← Back to projects <span>ESC</span></button>
+caseStudy.innerHTML = `<button class="case-close" aria-label="Close case study">← BACK</button>
   <article class="case-content">
-    <div class="case-stage"><header class="case-header"><p class="case-eyebrow">Selected work / <span data-case="year"></span> · <span data-case="category"></span></p>
-    <h1 id="case-title" data-case="title"></h1><p data-case="discipline"></p><p class="case-hint">Scroll up to return to projects</p></header>
-    <div class="case-hero"><img alt="" decoding="async"><span class="case-caption" data-case="caption"></span></div></div>
-    <div class="case-details"><section class="case-overview"><div><p class="case-eyebrow">The project</p><h2 data-case="intro"></h2></div><div><p data-case="overview"></p><dl><dt>Client</dt><dd data-case="client"></dd><dt>Scope</dt><dd data-case="discipline"></dd></dl></div></section>
-    <section class="case-chapters"><div><span>01 / Challenge</span><h2>Clarity through discovery.</h2><p data-case="challenge"></p></div><div><span>02 / Approach</span><h2>Built to be explored.</h2><p data-case="approach"></p></div><div><span>03 / Outcome</span><h2>A connected experience.</h2><p data-case="outcome"></p></div></section>
-    <footer class="case-footer"><p>Every detail is part of the story.</p><button class="case-return">Return to the collection ↗</button></footer></div>
-  </article>`;
+    <section class="case-stage"><header class="case-header">
+    <h1 id="case-title" data-case="title"></h1><div class="case-intro-columns"><div class="case-story"><p data-case="overview"></p><p data-case="approach"></p>
+    <a class="case-project-link" target="_blank" rel="noopener noreferrer" hidden>Launch project ↗</a></div>
+    <aside class="case-facts"><h2>Services</h2><ul class="case-services"></ul><div class="case-links"><h2>Links</h2><a class="case-site-link" target="_blank" rel="noopener noreferrer"></a></div></aside></div></header>
+    <figure class="case-hero"><img alt="" decoding="async"><figcaption class="case-caption" data-case="caption"></figcaption></figure></section>
+    <div class="case-gallery" aria-label="Project images"></div>
+    <footer class="case-end"><button class="case-next-project"><img class="case-next-preview" alt="" aria-hidden="true"><span class="case-next-title"></span><span class="case-next-label">Next project <span class="case-next-rule"></span><span aria-hidden="true">→</span></span></button></footer>
+  </article>
+  <div class="case-progress" aria-hidden="true"><div class="case-progress-fill"></div></div>`;
 document.body.appendChild(caseStudy);
 const caseHero = caseStudy.querySelector('.case-hero');
 const caseImage = caseStudy.querySelector('.case-hero img');
@@ -1541,6 +1542,10 @@ const flightRotationFrom = new THREE.Quaternion();
 let flightFov = CAMERA_FOV;
 let flightDistance = 2.05;
 let closeRequested = false;
+let pendingAnchor = null;
+let caseProjectIndex = 0;
+let caseSwitching = false;
+let caseSwitchTween = null;
 
 function aimFlight(item) {
   scene.updateMatrixWorld(true);
@@ -1573,6 +1578,7 @@ function updateFlightCamera() {
 function syncCaseReveal() {
   const reveal = THREE.MathUtils.smoothstep(flight.progress, .88, 1);
   caseStudy.style.setProperty('--case-reveal', String(reveal));
+  caseStudy.style.setProperty('--case-back-reveal', String(THREE.MathUtils.smoothstep(flight.progress, .4, 1)));
   caseStudy.dataset.transitioning = String(caseBusy);
 }
 function playFlight(forward, complete) {
@@ -1590,6 +1596,38 @@ function playFlight(forward, complete) {
     },
   });
 }
+function populateCase(index) {
+  caseProjectIndex = index;
+  const nextIndex = (index + 1) % projects.length;
+  const data = CASE_STUDIES[index];
+  caseStudy.querySelectorAll('[data-case]').forEach(el => { el.textContent = data[el.dataset.case]; });
+  palette.setProject(projects[index]);
+  gallery.populate(projects[index], PROJECT_COVERS[index], projects[nextIndex], PROJECT_COVERS[nextIndex]);
+  caseHero.style.setProperty('--image-ratio', String(cardPivots[index].media.aspect || 1500 / 937));
+  caseImage.src = PROJECT_COVERS[index].src;
+  caseImage.alt = `${data.title} — ${data.caption}`;
+}
+function nextCaseStudy() {
+  if (caseBusy || caseSwitching) return;
+  caseSwitching = true;
+  const content = caseStudy.querySelector('.case-content');
+  caseSwitchTween = gsap.timeline({ onComplete: () => {
+    caseSwitching = false;
+    caseSwitchTween = null;
+    gsap.set(content, { clearProps: 'opacity' });
+    caseStudy.querySelector('.case-close').focus({ preventScroll: true });
+  } })
+    .to(content, { opacity: 0, duration: reducedMotion.matches ? 0 : .22 })
+    .call(() => { populateCase((caseProjectIndex + 1) % projects.length); gallery.reset(); })
+    .to(content, { opacity: 1, duration: reducedMotion.matches ? 0 : .35 });
+}
+listen(caseImage, 'load', () => {
+  if (caseImage.naturalWidth && caseImage.naturalHeight) {
+    caseHero.style.setProperty('--image-ratio', String(caseImage.naturalWidth / caseImage.naturalHeight));
+    gallery.refresh();
+  }
+});
+caseImage.draggable = false;
 function openCaseStudy(item) {
   if (caseBusy || caseStudy.open || !item || item !== activeCard) return;
   caseBusy = true;
@@ -1599,13 +1637,11 @@ function openCaseStudy(item) {
   flight.progress = 0;
   savedFocus = document.activeElement;
   releaseFlightScroll = lockScroll({ allowWithin: caseStudy });
-  const data = CASE_STUDIES[item.index];
-  caseStudy.querySelectorAll('[data-case]').forEach(el => { el.textContent = data[el.dataset.case]; });
-  caseImage.src = PROJECT_COVERS[item.index].src;
-  caseImage.alt = `${data.title} — ${data.caption}`;
+  populateCase(item.index);
   syncCaseReveal();
   caseStudy.showModal();
-  caseStudy.scrollTop = 0;
+  window.dispatchEvent(new CustomEvent('work:case-header', { detail: caseStudy }));
+  gallery.reset();
   renderer.domElement.style.cursor = '';
   playFlight(true, () => {
     caseBusy = false;
@@ -1616,14 +1652,21 @@ function openCaseStudy(item) {
 function closeCaseStudy() {
   if (!caseStudy.open) return;
   if (caseBusy) { closeRequested = true; return; }
+  caseSwitchTween?.kill();
+  caseSwitchTween = null;
+  caseSwitching = false;
+  gsap.set(caseStudy.querySelector('.case-content'), { clearProps: 'opacity' });
+  // Reverse through the original collection card even after browsing projects.
+  if (flightItem && caseProjectIndex !== flightItem.index) populateCase(flightItem.index);
   caseBusy = true;
-  caseStudy.scrollTo({ top: 0, behavior: 'instant' });
+  gallery.reset();
   syncCaseReveal();
   playFlight(false, () => {
     camera.position.copy(flightFrom);
     camera.quaternion.copy(flightRotationFrom);
     camera.fov = flightFov;
     camera.updateProjectionMatrix();
+    window.dispatchEvent(new CustomEvent('work:case-header', { detail: null }));
     caseStudy.close();
     caseImage.removeAttribute('src');
     releaseFlightScroll?.();
@@ -1631,17 +1674,43 @@ function closeCaseStudy() {
     savedFocus?.focus({ preventScroll: true });
     flightItem = null;
     caseBusy = false;
+    if (pendingAnchor) {
+      const destination = document.querySelector(pendingAnchor);
+      pendingAnchor = null;
+      if (destination) jumpTo(window.scrollY + destination.getBoundingClientRect().top);
+    }
   });
 }
 listen(caseStudy.querySelector('.case-close'), 'click', closeCaseStudy);
-listen(caseStudy.querySelector('.case-return'), 'click', closeCaseStudy);
-listen(caseStudy, 'cancel', event => { event.preventDefault(); closeCaseStudy(); });
-listen(caseStudy, 'wheel', event => {
-  if (!caseBusy && caseStudy.scrollTop <= 1 && event.deltaY < -18) closeCaseStudy();
-}, { passive: true });
+listen(caseStudy.querySelector('.case-next-project'), 'click', nextCaseStudy);
+listen(caseStudy, 'keydown', event => {
+  // Escape closes the site's open menu before dismissing the case study.
+  if (event.key === 'Escape' && caseStudy.querySelector('[data-hero-nav] button[aria-expanded="true"]')) event.preventDefault();
+});
+listen(caseStudy, 'cancel', event => {
+  event.preventDefault();
+  if (!caseStudy.querySelector('[data-hero-nav] button[aria-expanded="true"]')) closeCaseStudy();
+});
+listen(caseStudy, 'click', event => {
+  const link = event.target.closest('[data-hero-nav] a[href^="#"]');
+  if (!link) return;
+  event.preventDefault();
+  pendingAnchor = link.getAttribute('href');
+  closeCaseStudy();
+});
+const palette = createCasePalette(caseStudy);
+const gallery = createCaseGallery(caseStudy, { onClose: closeCaseStudy, isBusy: () => caseBusy || caseSwitching, reducedMotion });
+const cardCursor = createCardCursor(reducedMotion);
+let mousePointer = false;
+const cardActionLabel = CASE_STUDIES_ENABLED ? 'Open current project case study' : 'Visit current project website (opens in a new tab)';
+function activateCard(item) {
+  if (CASE_STUDIES_ENABLED) { openCaseStudy(item); return; }
+  const href = projects[item.index]?.link?.href;
+  if (href) window.open(href, '_blank', 'noopener,noreferrer');
+}
 renderer.domElement.tabIndex = 0;
 renderer.domElement.setAttribute('role', 'button');
-renderer.domElement.setAttribute('aria-label', 'Open current project case study');
+renderer.domElement.setAttribute('aria-label', cardActionLabel);
 let pointerStart = null;
 listen(renderer.domElement, 'pointerdown', event => { pointerStart = new THREE.Vector2(event.clientX, event.clientY); });
 listen(renderer.domElement, 'click', event => {
@@ -1650,11 +1719,11 @@ listen(renderer.domElement, 'click', event => {
   const rect = canvas.getBoundingClientRect();
   hoverPointer.set((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2);
   updateHover();
-  if (hoveredCard && hoveredCard === activeCard) openCaseStudy(activeCard);
+  if (hoveredCard && hoveredCard === activeCard) activateCard(activeCard);
 });
 listen(renderer.domElement, 'keydown', event => {
   if (suspended) return;
-  if ((event.key === 'Enter' || event.key === ' ') && activeCard) { event.preventDefault(); openCaseStudy(activeCard); }
+  if ((event.key === 'Enter' || event.key === ' ') && activeCard) { event.preventDefault(); activateCard(activeCard); }
 });
 
 // Raycast the actual slabs so gaps and rounded corners keep the normal cursor.
@@ -1663,18 +1732,28 @@ const hoverPointer = new THREE.Vector2(2, 2);
 const hoverUv = new THREE.Vector2(0.5, 0.5);
 let hoveredCard = null;
 function updateHover() {
-  if (suspended || caseStudy.open) { hoveredCard = null; renderer.domElement.style.cursor = ''; return; }
+  if (suspended || caseStudy.open) { hoveredCard = null; renderer.domElement.style.cursor = ''; cardCursor.hide(); return; }
   hoverRay.setFromCamera(hoverPointer, camera);
   const hit = hoverRay.intersectObjects(cardPivots.map(item => item.card), false)[0];
   hoveredCard = hit ? cardPivots.find(item => item.card === hit.object) : null;
   if (hit?.uv) hoverUv.copy(hit.uv);
-  renderer.domElement.style.cursor = hoveredCard && hoveredCard === activeCard ? 'pointer' : '';
+  const activeHover = hoveredCard && hoveredCard === activeCard;
+  const available = CASE_STUDIES_ENABLED || Boolean(activeHover && projects[hoveredCard.index]?.link?.href);
+  renderer.domElement.style.cursor = activeHover && mousePointer ? 'none' : '';
+  if (activeHover && mousePointer) cardCursor.show(available);
+  else cardCursor.hide();
 }
 listen(renderer.domElement, 'pointermove', event => {
+  mousePointer = event.pointerType === 'mouse';
+  cardCursor.move(event.clientX, event.clientY);
   const rect = canvas.getBoundingClientRect();
   hoverPointer.set((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2);
 });
-listen(renderer.domElement, 'pointerleave', () => hoverPointer.set(2, 2));
+listen(renderer.domElement, 'pointerleave', () => {
+  hoverPointer.set(2, 2);
+  mousePointer = false;
+  cardCursor.hide();
+});
 
 // ======================================================
 // INITIAL
@@ -1767,11 +1846,16 @@ return {
   setProgress(progress) { targetScroll = THREE.MathUtils.clamp(progress, 0, 1); },
   setVisible(visible, interactive = visible) {
     suspended = !visible;
+    if (!interactive) {
+      mousePointer = false;
+      hoverPointer.set(2, 2);
+      cardCursor.hide();
+    }
     renderer.domElement.tabIndex = interactive ? 0 : -1;
     renderer.domElement.style.pointerEvents = interactive ? 'auto' : 'none';
     if (interactive) {
       renderer.domElement.setAttribute('role', 'button');
-      renderer.domElement.setAttribute('aria-label', 'Open current project case study');
+      renderer.domElement.setAttribute('aria-label', cardActionLabel);
     } else {
       renderer.domElement.removeAttribute('role');
       renderer.domElement.removeAttribute('aria-label');
@@ -1780,10 +1864,15 @@ return {
   dispose() {
     disposed = true;
     events.abort();
+    cardCursor.dispose();
     flightTween?.kill();
     releaseFlightScroll?.();
     portal.dispose();
     caseHero.getAnimations().forEach(animation => animation.cancel());
+    window.dispatchEvent(new CustomEvent('work:case-header', { detail: null }));
+    caseSwitchTween?.kill();
+    palette.dispose();
+    gallery.dispose();
     caseStudy.close();
     caseStudy.remove();
     canvas.classList.remove('work-case-open');

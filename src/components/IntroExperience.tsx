@@ -101,7 +101,7 @@ export default function IntroExperience() {
     };
     window.addEventListener("intro:loader-state", onLoaderState);
 
-    // Composite the hero reveal over the shared scene; studio has its own ribbon.
+    // Composite the hero trail behind the shared scene and its blue line.
     const sceneTarget = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false, stencilBuffer: false });
     const pearlTrail = createPearlTrail(renderer, sceneTarget.texture);
     const inkScene = new THREE.Scene();
@@ -127,7 +127,7 @@ export default function IntroExperience() {
           vec4 ink=texture2D(uInk,vUv);
           float screenY=(1.0-vUv.y)*uViewport.y;
           float studioMode=smoothstep(uHeroBottom-8.0,uHeroBottom+8.0,screenY);
-          vec4 hero=vec4(ink.rgb+base.rgb*(1.0-ink.a),ink.a+base.a*(1.0-ink.a));
+          vec4 hero=vec4(base.rgb+ink.rgb*(1.0-base.a),base.a+ink.a*(1.0-base.a));
           gl_FragColor=mix(hero,base,studioMode);
         }`,
     });
@@ -270,7 +270,7 @@ export default function IntroExperience() {
         return;
       }
       const dt = Math.min(elapsed / 1000, 0.05);
-      const trailPointer = !reduced && !coarse && pointer.has && pointer.y >= studioRect.top && pointer.y < workRect.bottom;
+      const trailPointer = !reduced && !coarse && pointer.has && pointer.y >= heroRect.top && pointer.y < workRect.bottom;
       pearlTrail.update(dt, pointer.x - stage.left, pointer.y - stage.top, trailPointer, width, height);
       const inHero = heroRect.bottom > 0 && heroRect.top < window.innerHeight;
       renderer.autoClear = true;
@@ -327,7 +327,7 @@ export default function IntroExperience() {
         renderer.setClearColor(0, 0);
       }
 
-      // The same liquid trail is the final pass over Reel, Services, loader and Work.
+      // Liquid sits above the line; the hero masking trail stays below it.
       renderer.setScissorTest(false);
       pearlTrail.render();
       const readout = studio.querySelector<HTMLElement>("[data-fluid-readout]");

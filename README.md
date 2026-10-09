@@ -1,136 +1,66 @@
-# Bytes and Partners
+# BytesPlatform
 
-Front end for **Bytes and Partners**. Currently implemented: the hero and a
-placeholder next scene so the exit transition can be built against something
-real. Everything below that is still to come.
+A single-page studio site built with Next.js App Router, React, Three.js, GSAP,
+Lenis, and Tailwind CSS. The page contains an interactive hero, showreel,
+rotating project cards, services, and contact footer.
 
-> **Brand note.** The hero word is `BytesPlatform.` under a `BYTES & PARTNERS`
-> header, at the client's direction. This inverts the hierarchy recorded in the
-> JSON-LD (`subOrganization` / `brand`), where BytesPlatform is the subsidiary
-> platform and never the company. The structured data was left as-is; if the
-> positioning has genuinely changed, that needs updating to match.
+## Development
 
-## Stack
-
-| Layer | Choice |
-| --- | --- |
-| Framework | Next.js 16 (App Router, React 19, Turbopack) |
-| Styling | Tailwind CSS v4 + CSS custom properties |
-| Choreography | GSAP 3 (one timeline, one shared `gsap.ticker`) |
-| Field | Hand-written WebGL — one quad, one fragment shader |
-| Smooth scroll | Lenis (fine pointer + motion enabled only) |
-| Type | Inter, one family, weights 500–800 |
-
-No 3D library. The reveal is a single textured quad; a scene graph would cost
-~135 KB gzip to draw two triangles.
-
-## The composition
-
-```
-BYTES & PARTNERS                        • Start a project    Menu ≡
-
-
-
-
-          BytesPlatform.
-
-TECHNOLOGY STUDIO / TEXAS                            SCROLL │
+```sh
+npm ci
+npm run dev
 ```
 
-One grotesk, one accent, a great deal of nothing. The word is lower-middle and
-left-anchored rather than centred, and fills 88–95% of the measure at every
-viewport from 320 to 1920.
+Open http://localhost:3000. Before shipping changes:
 
-## The field
-
-`BytesPlatform.` is a real `<h1>` — live, selectable, crisp — and it is never
-drawn, animated or touched by the shader. It has no reveal animation at all:
-the composition is simply there on first paint.
-
-`lib/hero/metaballTrail.ts` is one canvas **above** the word. A chain of 20
-points chases the pointer — the head eases toward it, every point after that
-eases toward the one in front — and the shader draws a tapered capsule between
-each pair of neighbours, melted together with a smooth minimum, so the chain is
-one continuous liquid body at any speed.
-
-Inside the body it paints the photograph, with the headline redrawn over it in
-white: the real letters are rasterised at the exact positions the browser laid
-them out, and the shader reads the word's box every frame so the white copy
-follows the scroll parallax. Outside the body the canvas is transparent. It is
-all ordinary alpha compositing, so the antialiased edge blends cleanly.
-
-The body only exists while the pointer moves: an energy value follows the
-averaged pointer speed, and as it drains the body breaks into droplets and is
-gone within about a second. The chain is then gathered back at the pointer so
-the next movement forms it in place.
-
-## Scroll
-
-Scrolling carries the word up and lifts the footer away, driven off one GSAP
-ticker. The header is fixed and never moves. The trail pauses while the hero is off screen.
-
-## Structure
-
-```
-src/
-  app/
-    layout.tsx        root shell, font, metadata, JSON-LD
-    page.tsx          renders <Hero />
-    globals.css       tokens, the hero type scale, fallbacks
-  components/hero/
-    Hero.tsx          orchestrator: pointer, trail, scroll, teardown
-    HeroInk.tsx       the trail canvas
-    HeroNav.tsx       identity, one action, one control
-    HeroTypography.tsx the word — real HTML, two lines in markup
-  components/sections/
-    FluidVideoTransition.tsx  the reel: ScrollTrigger plays/reverses a GSAP timeline
-  lib/
-    hero/metaballTrail.ts the metaball trail shader
-    fluid/                the reel's sheet geometry and Three.js renderer
-    shaders/              the reel's GLSL
-    animation/            device probes, scroll + anchor routing
+```sh
+npm run typecheck
+npm run build
 ```
 
-## Responsive
+`npm start` serves the production build. This project does not currently have an
+ESLint configuration; Next.js 16 no longer provides the `next lint` command.
 
-Three deliberate tiers, not one shrinking layout:
+## Where to edit
 
-| Range | Word |
-| --- | --- |
-| ≥ 1024px | one line, near full-bleed |
-| 640–1023px | two lines, sized to the wider measure |
-| < 640px | two lines, as large as the gutter allows |
+- `src/app/page.tsx` renders `IntroExperience`, which coordinates the shared
+  WebGL canvas and scroll scenes.
+- `src/components/hero/` contains the hero, persistent navigation, and menu.
+- `src/components/sections/` contains the reel/player, featured work, services,
+  and footer. Shared controls live in `src/components/ui/`.
+- `src/lib/hero/`, `intro/`, `fluid/`, `services/`, and `work/` implement the
+  visuals and transitions. `src/lib/animation/` handles scroll and device preferences.
+- `src/data/site.ts` is the shared BytesPlatform brand, contact, and link configuration,
+  sourced from https://bytesplatform.com/.
+- `src/data/projects.ts` contains project names, URLs, images, case-study copy,
+  and palettes. Keep media paths synchronized with `public/projects/`.
+- `public/showreel/` contains the preview and full player videos, their format
+  fallbacks, and posters. `public/fonts/` includes the local font and its license.
+- `src/app/globals.css` defines shared typography, colors, and base behavior.
 
-Each line is its own `nowrap` run, so the only place the word may break is
-*between* them — never mid-word, and never at a size that happens to land one
-pixel over the container. Verified at ten widths from 320 to 1920: no
-horizontal scroll anywhere, and the word never collides with the footer.
+## Project cards and case studies
 
-## Performance
+`CASE_STUDIES_ENABLED` near the top of `src/lib/work/rootCardsScene.js` is
+currently `false`. Active cards open their configured `link.href` in a new tab.
+Projects without a URL remain unavailable. The shader cursor follows mouse
+movement over the active card; touch interaction does not show this cursor.
 
-- One `requestAnimationFrame` for the page: GSAP's ticker drives Lenis, the
-  scroll parallax and the shader.
-- No React state in any animation path; the orchestrator is one effect.
-- The trail is a single full-screen pass on one canvas with no framebuffers —
-  the chain of points is its memory. DPR is capped at 2 (1.5 on touch).
-- Rendering is skipped when the hero is off screen (`IntersectionObserver`) or
-  the tab is hidden.
-- The chain's easing is frame-rate independent, so it follows at the same pace
-  on 60 Hz and 120 Hz displays.
-- `trail.destroy()` releases the buffer, vertex array and program.
+Set the toggle to `true` to restore the camera/portal transition and horizontal
+case studies. Their gallery, next-project navigation, and palette editor are
+retained. The palette editor previews colors and copies a `caseTheme` object to
+paste into `projects.ts`; drafts are not persisted across reloads.
 
-Measured in Chrome at 1280×800 on an Apple M4: a steady **60 fps** while the
-trail is moving.
+`ENABLE_LINE_DRAWING_TOOL` in `src/lib/intro/lineData.ts` enables the retained
+line-layout authoring tool. It is disabled by default. `ideas/` holds design
+references, not runtime assets.
 
-## Fallbacks
+## Routes and checks
 
-Reduced motion, no WebGL and no JavaScript all resolve to the same place: the
-composition, with the type fully inked and crisp and no canvas at all. In every
-one of those states the word is still a real `<h1>` reading
-`BytesPlatform.` — the field is the only thing that is ever missing.
+The homepage is the only content route. The app also supplies a 404 page,
+icon, Open Graph image, sitemap, and robots file. The previous multi-section
+site and refund-policy route are absent from this redesign branch.
 
-## Design tokens
-
-`--bp-bg`, `--bp-text`, `--bp-accent`, `--bp-gut`, `--bp-radius`,
-`--bp-hairline` on `:root`. Warm paper `#F5F2EA`, ink `#111111`, electric blue
-`#2457FF` — used once, on the period, and as small indicator dots.
+After animation changes, check desktop and touch layouts, reduced motion,
+menu/contact navigation, reel playback and closing, card hover/click behavior,
+and returning to the top on refresh. If changing case-study code, also verify
+it with its toggle enabled, then restore the intended toggle value.

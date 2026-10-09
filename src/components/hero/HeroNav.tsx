@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import NavButton from "../ui/NavButton";
 import SiteMenu from "./SiteMenu";
 
@@ -15,14 +16,20 @@ import SiteMenu from "./SiteMenu";
 export default function HeroNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [buttonActive, setButtonActive] = useState(false);
+  const [caseHost, setCaseHost] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const moveHeader = (event: Event) => setCaseHost((event as CustomEvent<HTMLElement | null>).detail);
+    window.addEventListener("work:case-header", moveHeader);
+    return () => window.removeEventListener("work:case-header", moveHeader);
+  }, []);
   // True while the menu is mid-animation; every toggle is ignored until it settles.
   const animating = useRef(false);
 
   const closeMenu = useCallback(() => {
-    if (animating.current) return;
+    if (animating.current || !menuOpen) return;
     animating.current = true;
     setMenuOpen(false);
-  }, []);
+  }, [menuOpen]);
 
   const handleMenuOpened = useCallback(() => {
     animating.current = false;
@@ -53,11 +60,11 @@ export default function HeroNav() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [closeMenu, menuOpen]);
 
-  return (
+  const header = (
     <header data-hero-nav className="pointer-events-none fixed inset-x-0 top-0 z-50 flex items-start justify-between gap-6 px-[var(--bp-gut)] pt-[var(--bp-gut)] [&>*]:pointer-events-auto">
       <a
         href="#top"
-        aria-label="Bytes — home"
+        aria-label="BytesPlatform — home"
         className="hero-mark text-ink transition-opacity duration-500 hover:opacity-60"
       >
         BYTES.
@@ -84,4 +91,5 @@ export default function HeroNav() {
       </div>
     </header>
   );
+  return caseHost ? createPortal(header, caseHost) : header;
 }

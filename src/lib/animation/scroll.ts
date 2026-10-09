@@ -1,23 +1,5 @@
 import gsap from "gsap";
 
-/**
- * A single shared scroll signal.
- *
- * Everything that reacts to scroll (typography parallax, the thread, the
- * shader field) reads these numbers off one mutable object inside the one
- * GSAP ticker — no React state, no per-system listener, no extra rAF.
- */
-export const scrollState = {
-  /** raw pixels */
-  y: 0,
-  /** 0..1 over the scrollable document */
-  progress: 0,
-  /** smoothed px/frame, signed */
-  velocity: 0,
-  /** 0..1 eased magnitude of velocity, what visuals actually consume */
-  energy: 0,
-};
-
 type Teardown = () => void;
 
 type LenisLike = {
@@ -25,7 +7,6 @@ type LenisLike = {
   destroy(): void;
   stop(): void;
   start(): void;
-  on(e: string, cb: (a: { scroll: number; progress: number; velocity: number }) => void): void;
   scrollTo(target: string | number | HTMLElement, opts?: Record<string, unknown>): void;
 };
 
@@ -34,43 +15,19 @@ let teardown: Teardown | null = null;
 /** the live Lenis instance, if smooth scrolling is on — for lockScroll */
 let activeLenis: LenisLike | null = null;
 
-function readWindow() {
-  const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-  scrollState.y = window.scrollY;
-  scrollState.progress = Math.min(1, Math.max(0, window.scrollY / max));
-}
-
 /**
- * Starts the scroll signal. Lenis is loaded lazily and only for fine
- * pointers with motion enabled; touch keeps native inertia, which is both
+ * Starts smooth scrolling and same-page anchor routing. Lenis loads lazily
+ * for fine pointers with motion enabled; touch keeps native inertia, which is both
  * faster and what the platform expects.
  */
 export function mountScroll(opts: { smooth: boolean }): Teardown {
   mounted += 1;
   if (teardown) return release;
 
-  let prevY = window.scrollY;
   let lenis: LenisLike | null = null;
   let cancelled = false;
 
-  readWindow();
-
-  const onScroll = () => readWindow();
-
-  const tick = (_t: number, _dt: number) => {
-    if (lenis) lenis.raf(performance.now());
-    else readWindow();
-
-    const dy = scrollState.y - prevY;
-    prevY = scrollState.y;
-
-    // critically damped-ish smoothing, no allocations
-    scrollState.velocity += (dy - scrollState.velocity) * 0.18;
-    const mag = Math.min(1, Math.abs(scrollState.velocity) / 42);
-    scrollState.energy += (mag - scrollState.energy) * (mag > scrollState.energy ? 0.16 : 0.055);
-  };
-
-  gsap.ticker.add(tick);
+  const tick = () => lenis?.raf(performance.now());
 
   if (opts.smooth) {
     import("lenis").then(({ default: Lenis }) => {
@@ -82,18 +39,11 @@ export function mountScroll(opts: { smooth: boolean }): Teardown {
         wheelMultiplier: 1,
         touchMultiplier: 1.6,
       });
-      instance.on("scroll", ({ scroll, progress }) => {
-        scrollState.y = scroll;
-        scrollState.progress = progress;
-      });
       lenis = instance as unknown as LenisLike;
       activeLenis = lenis;
+      gsap.ticker.add(tick);
     });
-  } else {
-    window.addEventListener("scroll", onScroll, { passive: true });
   }
-
-  window.addEventListener("resize", readWindow, { passive: true });
 
   /**
    * Same-page anchors have to go through Lenis. A native jump leaves Lenis
@@ -119,8 +69,6 @@ export function mountScroll(opts: { smooth: boolean }): Teardown {
   teardown = () => {
     cancelled = true;
     gsap.ticker.remove(tick);
-    window.removeEventListener("scroll", onScroll);
-    window.removeEventListener("resize", readWindow);
     document.removeEventListener("click", onAnchorClick);
     lenis?.destroy();
     lenis = null;

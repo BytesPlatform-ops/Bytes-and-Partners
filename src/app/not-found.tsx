@@ -4,7 +4,7 @@ export default function NotFound() {
   return (
     <section className="flex min-h-[100svh] flex-col justify-between px-[var(--bp-gut)] py-[var(--bp-gut)]">
       <span className="hero-mark text-ink">
-        Bytes &amp; Partners
+        BytesPlatform
       </span>
 
       <div>

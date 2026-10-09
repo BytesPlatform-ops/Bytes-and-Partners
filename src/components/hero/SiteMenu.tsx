@@ -1,6 +1,7 @@
 "use client";
 import { useLayoutEffect, useRef } from "react";
 import styles from "./SiteMenu.module.css";
+import { site } from "@/data/site";
 
 const links = [
   { label: "Home", href: "#top" },
@@ -123,17 +124,17 @@ export default function SiteMenu({ open, onClose, onOpened, onClosed }: SiteMenu
           <div className={styles.bottom}>
             <div className={styles.utilityLinks}>
               <a href="#services" tabIndex={open ? 0 : -1}><RollText text="Process" /></a>
-              <a href="mailto:info@bytesandpartners.co?subject=Careers" tabIndex={open ? 0 : -1}><RollText text="Careers" /></a>
-              <a href="#work" tabIndex={open ? 0 : -1}><RollText text="Journal" /></a>
+              <a href={site.links.careers} tabIndex={open ? 0 : -1}><RollText text="Careers" /></a>
+              <a href={site.links.blog} tabIndex={open ? 0 : -1}><RollText text="Journal" /></a>
             </div>
             <div className={styles.socials}>
-              <a href="https://www.instagram.com/" target="_blank" rel="noreferrer" tabIndex={open ? 0 : -1} aria-label="Instagram">
+              <a href={site.social.instagram} target="_blank" rel="noreferrer" tabIndex={open ? 0 : -1} aria-label="Instagram">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.7" r="1" className={styles.fill} /></svg>
               </a>
-              <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer" tabIndex={open ? 0 : -1} aria-label="LinkedIn">
+              <a href={site.social.linkedin} target="_blank" rel="noreferrer" tabIndex={open ? 0 : -1} aria-label="LinkedIn">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.2 9.2V19M6.2 5.2v.1M10.6 19v-5.5a4 4 0 0 1 8 0V19M10.6 9.2V19" /></svg>
               </a>
-              <a href="https://www.facebook.com/" target="_blank" rel="noreferrer" tabIndex={open ? 0 : -1} aria-label="Facebook">
+              <a href={site.social.facebook} target="_blank" rel="noreferrer" tabIndex={open ? 0 : -1} aria-label="Facebook">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 20v-7h2.5l.4-3H14V8.1c0-.9.3-1.5 1.6-1.5H17V4.1c-.7-.1-1.4-.1-2.1-.1-2.1 0-3.6 1.3-3.6 3.7V10H9v3h2.3v7" /></svg>
               </a>
             </div>

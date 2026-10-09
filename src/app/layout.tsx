@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
+import { site } from "@/data/site";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -10,13 +12,13 @@ const inter = Inter({
 
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://bytesandpartners.co"),
+  metadataBase: new URL(site.url),
   title: {
-    default: "Bytes and Partners — We Build Intelligent Digital Experiences",
-    template: "%s · Bytes and Partners",
+    default: "BytesPlatform — We Build Intelligent Digital Experiences",
+    template: "%s · BytesPlatform",
   },
   description:
-    "Bytes and Partners is a technology company creating AI-powered products, scalable web and mobile applications, CRM platforms and intelligent automation for businesses worldwide — engineered through its technology platform, BytesPlatform.",
+    "BytesPlatform is a Texas-based digital studio building websites, mobile apps, AI automation, and CRM platforms, with SEO and digital marketing to help businesses grow.",
   keywords: [
     "AI development studio",
     "AI agents",
@@ -27,25 +29,25 @@ export const metadata: Metadata = {
     "SaaS product development",
     "custom software development",
     "digital transformation",
-    "Bytes and Partners",
+    "Bytes Platform",
     "BytesPlatform",
   ],
-  authors: [{ name: "Bytes and Partners" }],
-  creator: "Bytes and Partners",
-  publisher: "Bytes and Partners",
+  authors: [{ name: "BytesPlatform" }],
+  creator: "BytesPlatform",
+  publisher: "BytesPlatform",
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://bytesandpartners.co",
-    siteName: "Bytes and Partners",
-    title: "Bytes and Partners — We Build Intelligent Digital Experiences",
+    url: site.url,
+    siteName: "BytesPlatform",
+    title: "BytesPlatform — We Build Intelligent Digital Experiences",
     description:
       "AI-powered products, scalable applications and intelligent systems — designed and engineered in-house.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Bytes and Partners — We Build Intelligent Digital Experiences",
+    title: "BytesPlatform — We Build Intelligent Digital Experiences",
     description:
       "AI-powered products, scalable applications and intelligent systems — designed and engineered in-house.",
   },
@@ -66,36 +68,23 @@ export const viewport: Viewport = {
 const ORG_JSONLD = {
   "@context": "https://schema.org",
   "@type": "ProfessionalService",
-  name: "Bytes and Partners",
-  legalName: "Bytes and Partners",
-  alternateName: "Bytes & Partners",
-  url: "https://bytesandpartners.co",
+  name: site.name,
+  legalName: site.legalName,
+  alternateName: "Bytes Platform",
+  url: site.url,
   description:
     "Technology studio building AI-powered products, web and mobile applications, CRM platforms and intelligent automation.",
-  email: "info@bytesandpartners.co",
-  telephone: "+1-631-388-9360",
+  email: site.email,
+  telephone: site.phoneHref.slice(4),
+  sameAs: Object.values(site.social),
   address: {
     "@type": "PostalAddress",
-    streetAddress: "675 Hawkins Road East",
-    addressLocality: "Coram",
-    addressRegion: "NY",
-    postalCode: "11727",
+    streetAddress: site.address.street,
+    addressLocality: site.address.city,
+    addressRegion: "TX",
     addressCountry: "US",
   },
   areaServed: "Worldwide",
-  brand: {
-    "@type": "Brand",
-    name: "BytesPlatform",
-    description:
-      "BytesPlatform is the technology platform and subsidiary of Bytes and Partners.",
-  },
-  subOrganization: {
-    "@type": "Organization",
-    name: "BytesPlatform",
-    description:
-      "Technology platform and subsidiary of Bytes and Partners, delivering AI products, web and mobile applications, CRM platforms and custom software.",
-    parentOrganization: { "@type": "Organization", name: "Bytes and Partners" },
-  },
   knowsAbout: [
     "Artificial Intelligence",
     "AI Agents",
@@ -116,6 +105,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={inter.variable}
     >
       <body className="relative antialiased">
+        <Script id="restart-on-refresh" strategy="beforeInteractive">
+          {`if (performance.getEntriesByType('navigation')[0]?.type === 'reload') {
+            history.scrollRestoration = 'manual';
+            if (location.hash) history.replaceState(history.state, '', location.pathname + location.search);
+            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+          }`}
+        </Script>
         <script
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger

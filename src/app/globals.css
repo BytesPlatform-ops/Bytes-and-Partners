@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ============================================================
-   BYTES & PARTNERS
+   BYTESPLATFORM
    One grotesk, one accent, a great deal of nothing.
    ============================================================ */
 
@@ -10,7 +10,6 @@
   --color-ink: #111111;
   --color-ink-mute: #6b665d;
   --color-blue: #2457ff;
-  --color-ember: #ff5b2e;
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
@@ -36,6 +35,17 @@
 }
 
 @layer base {
+  * {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Inputs and the palette's code field remain editable and copyable. */
+  input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
   html {
     /* the mask canvas bleeds past the gutter on purpose; clip it here so the
        bleed never becomes a horizontal scrollbar */
@@ -180,41 +190,13 @@
     color: var(--color-ink-mute);
   }
 
-  .hero-lede {
-    font-size: clamp(0.9375rem, 1.5vw, 1.125rem);
-    line-height: 1.45;
-    letter-spacing: -0.014em;
-    color: var(--color-ink-mute);
-    text-wrap: pretty;
-  }
 
-  .hero-rule {
-    position: relative;
-    display: block;
-    width: 1px;
-    height: 14px;
-    overflow: hidden;
-    background: rgb(17 17 17 / 0.16);
-  }
-  .hero-rule > span {
-    position: absolute;
-    inset-inline: 0;
-    top: 0;
-    display: block;
-    height: 6px;
-    background: var(--bp-accent);
-    animation: bp-tick 2.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
-  }
 }
 
 @keyframes hero-morph-failsafe {
   to { opacity: 1; }
 }
 
-@keyframes bp-tick {
-  0%   { transform: translateY(-120%); }
-  100% { transform: translateY(260%); }
-}
 
 /* ============================================================
    Fallbacks — the composition must read with no JS, no WebGL
@@ -224,12 +206,10 @@
 /* With no JS the cover is never painted, so the composition is simply there.
    Hiding the canvas outright removes any chance of an unrendered artefact. */
 @media (scripting: none) {
-  [data-ink] { display: none; }
   .hero-word[data-morph] .hero-char { opacity: 1; animation: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-ink] { display: none; }
   .hero-word[data-morph] .hero-char { opacity: 1; animation: none; }
 
   *, *::before, *::after {

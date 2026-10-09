@@ -94,7 +94,7 @@
 
 .action:hover,
 .action:focus-visible {
-  background: #152fff;
+  background: var(--case-accent, #152fff);
 }
 
 .action:hover .arrow,

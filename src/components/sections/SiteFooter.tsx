@@ -1,37 +1,38 @@
+import { site } from "@/data/site";
 import styles from "./SiteFooter.module.css";
 
 export default function SiteFooter() {
   return (
-    <div className={styles.stage}>
-    <footer id="contact" data-site-footer className={styles.footer}>
+    <div id="contact" className={styles.stage}>
+    <footer data-site-footer className={styles.footer}>
       <div className={styles.head}>
-        <p className={styles.eyebrow}>Bytes &amp; Partners / Texas</p>
-        <a className={styles.email} href="mailto:info@bytesandpartners.co">info@bytesandpartners.co</a>
+        <p className={styles.eyebrow}>{site.name} / Denton, Texas</p>
+        <a className={styles.email} href={`mailto:${site.email}`}>{site.email}</a>
       </div>
 
       <div className={styles.contactGrid}>
-        <section><p className={styles.label}>Phone</p><a className={styles.underlined} href="tel:+16313889360">+1 631 388 9360</a></section>
+        <section><p className={styles.label}>Phone · Toll free</p><a className={styles.underlined} href={site.phoneHref}>{site.phone}</a></section>
         <address>
           <p className={styles.label}>Address</p>
-          <a className={styles.addressLink} href="https://maps.google.com/?q=675+Hawkins+Road+East+Coram+NY+11727" target="_blank" rel="noreferrer">
-            <span>675 Hawkins Road East</span>
-            <span>Coram, NY 11727</span>
+          <a className={styles.addressLink} href={site.address.map} target="_blank" rel="noreferrer">
+            <span>{site.address.street}</span>
+            <span>{site.address.city}, {site.address.region}</span>
             <span>United States</span>
           </a>
         </address>
         <nav aria-label="Social media" className={styles.socials}>
           <p className={styles.label}>Social</p>
-          <a className={styles.motionLink} href="https://www.facebook.com/" target="_blank" rel="noreferrer"><span aria-hidden>↗</span><span>Facebook</span></a>
-          <a className={styles.motionLink} href="https://www.instagram.com/" target="_blank" rel="noreferrer"><span aria-hidden>↗</span><span>Instagram</span></a>
-          <a className={styles.motionLink} href="https://www.linkedin.com/" target="_blank" rel="noreferrer"><span aria-hidden>↗</span><span>LinkedIn</span></a>
+          <a className={styles.motionLink} href={site.social.facebook} target="_blank" rel="noreferrer"><span aria-hidden>↗</span><span>Facebook</span></a>
+          <a className={styles.motionLink} href={site.social.instagram} target="_blank" rel="noreferrer"><span aria-hidden>↗</span><span>Instagram</span></a>
+          <a className={styles.motionLink} href={site.social.linkedin} target="_blank" rel="noreferrer"><span aria-hidden>↗</span><span>LinkedIn</span></a>
         </nav>
       </div>
 
-      <div className={styles.wordmark} aria-label="Bytes and Partners"><span>Bytes</span><span>&amp;</span><span>Partners</span></div>
+      <div className={styles.wordmark} aria-label="BytesPlatform"><span>BytesPlatform<span className={styles.period}>.</span></span></div>
 
       <div className={styles.legal}>
-        <p>© 2026 Bytes &amp; Partners</p>
-        <p>Technology shaped with intent.</p>
+        <p>© 2026 {site.legalName}</p>
+        <nav className={styles.policyLinks} aria-label="Policies"><a href={site.links.privacy}>Privacy</a><a href={site.links.terms}>Terms</a><a href={site.links.refund}>Refund policy</a></nav>
         <a href="#top" aria-label="Back to top">↑</a>
       </div>
     </footer>
